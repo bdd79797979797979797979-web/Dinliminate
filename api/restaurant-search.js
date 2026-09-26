@@ -564,13 +564,22 @@ async function suggest(q, limit = 7) {
 
   const settled = await Promise.allSettled(tasks);
   const all = settled.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-  const seen = new Set();
-  const out = [];
-  for (const x of all) {
+  const ql = String(q).toLowerCase().replace(/\s+/g,' ').trim();
+  const scored = all.map((x, index) => {
+    const display = String(x.display || '').toLowerCase();
+    const hasMagic = !!x.magicKey;
+    const exactTokens = ql.split(/[^a-z0-9]+/).filter(t=>t.length>1).filter(t=>display.includes(t)).length;
+    const addressNumber = (ql.match(/^\s*(\d+)/)||[])[1];
+    const sameNumber = addressNumber ? new RegExp('(^|\\s|,)'+addressNumber+'(\\s|,|$)').test(display) : false;
+    return {...x, _suggestScore:(hasMagic?40:0)+(x.source==='ArcGIS'?20:0)+(sameNumber?20:0)+exactTokens*2-index*0.001};
+  }).sort((a,b)=>b._suggestScore-a._suggestScore);
+  const seen = new Set(), out = [];
+  for (const x of scored) {
     const k = String(x.display || '').toLowerCase();
     if (!k || seen.has(k)) continue;
     seen.add(k);
-    out.push(x);
+    const clean = {...x}; delete clean._suggestScore;
+    out.push(clean);
     if (out.length >= capped) break;
   }
   return out;
