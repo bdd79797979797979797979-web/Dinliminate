@@ -1,4 +1,5 @@
 /* Dinliminate P706 — one authoritative Tinder interaction controller. */
+/* Latest source checkpoint: card taps + direct decisions share the same interaction owner. */
 (function(){
   'use strict';
   const VERSION='p706';
