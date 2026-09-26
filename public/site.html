@@ -5502,7 +5502,7 @@ window.__dinliminateReleaseMigration=(async()=>{
   } catch(e) { console.warn('Dinliminate cache cleanup skipped',e); }
 })();
 </script>
-<link rel="stylesheet" href="./launch-hardening.css?v=p704"><script src="./launch-hardening.js?v=p704" defer></script><script src="./interaction-controller.js?v=p704" defer></script><style id="dinliminate-p641-controls">
+<link rel="stylesheet" href="./launch-hardening.css?v=p705"><script src="./launch-hardening.js?v=p705" defer></script><script src="./interaction-controller.js?v=p705" defer></script><style id="dinliminate-p641-controls">
   .game-bottom{display:flex!important;gap:7px!important;flex-wrap:wrap!important;justify-content:center!important;margin-top:8px!important}
   .food-secondary-action{min-height:34px!important;padding:0 12px!important;font-size:.55rem!important;font-weight:850!important}
   .pass-around-btn,.restaurant-pass-btn,#passAroundBtn,#restaurantPassAroundBtn{border-color:rgba(103,196,155,.32)!important;color:#a5ebcc!important;background:rgba(103,196,155,.09)!important}
@@ -6118,7 +6118,7 @@ let foodPreferences = readFoodPreferences();
 let motionTiltEnabled = safeRead('dinliminateMotionTilt','false') === 'true';
 let motionTiltActive = false;
 let motionBaseline = { beta: null, gamma: null };
-const DINLIMINATE_VERSION = 'p704';
+const DINLIMINATE_VERSION = 'p705';
 try{ localStorage.removeItem('dinliminateRestaurantPhotoCache'); }catch{}
 const RESTAURANT_MAX_MILES = 100; // Final launch cap; provider search is tiled for wider areas.
 const RESTAURANT_FALLBACK_PHOTO = 'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=1200';
@@ -7724,7 +7724,7 @@ bind('closeSettingsBtn','click',closeSettings);
 bind('settingsBackdrop','click',e=>{ if(e.target === $('settingsBackdrop')) closeSettings(); });
 bind('detailCloseBtn','click',(e)=>{ e?.stopPropagation?.(); closeDetails(); });
 bind('detailBackdrop','click',e=>{ if(e.target === $('detailBackdrop')) closeDetails(); });
-bind('closeDrawerBtn','click',closeMenu);bind('aboutMenuBtn','click',()=>{closeMenu();openInfo('About Dinliminate',`<p><strong>Dinliminate</strong> turns dinner indecision into a simple elimination game.</p><p>Built around food cards, restaurant cards, Quick Cuts, personal foods, saved choices, and decision history.</p><p><strong>Made by Brian Dunn for Devona Dunn.</strong></p><p>Release ${DINLIMINATE_VERSION} · September 25, 2026.</p>`,'DINLIMINATE');});
+bind('closeDrawerBtn','click',closeMenu);bind('aboutMenuBtn','click',()=>{closeMenu();openInfo('About Dinliminate',`<p><strong>Dinliminate</strong> turns dinner indecision into a simple elimination game.</p><p>Built around food cards, restaurant cards, Quick Cuts, personal foods, saved choices, and decision history.</p><p><strong>Made by Brian Dunn for Devona Dunn.</strong></p><p>Release ${DINLIMINATE_VERSION} · September 26, 2026.</p>`,'DINLIMINATE');});
 bind('scrim','click',closeMenu);
 bind('addMenuBtn','click',openModal);
 bind('homeMenuBtn','click',()=>{closeMenu();window.DinliminateBackToStart?.();});
