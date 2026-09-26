@@ -7298,7 +7298,10 @@ function restaurantQuickCutMatches(item,key){
     healthy:[/\bhealthy\b/,/\bsalad\b/,/\bgrain bowl\b/,/\bgreen bowl\b/],
     soupstew:[/\bsoup\b/,/\bstew\b/,/\bchowder\b/,/\bchili\b/],
     coffee:[/\bcoffee\b/,/\bcaf(?:e|é)\b/],
-    dessert:[/\bdesserts?\b/,/\bbakery\b/,/\bice\s+cream\b/]
+    dessert:[/\bdesserts?\b/,/\bbakery\b/,/\bice\s+cream\b/],
+    potato:[/\bpotato(?:es)?\b/,/\bfries\b/,/\btater tots?\b/],
+    healthy:[/\bhealthy\b/,/\bsalad\b/,/\bgrain bowl\b/,/\bgreen bowl\b/],
+    soupstew:[/\bsoup\b/,/\bstew\b/,/\bchowder\b/,/\bchili\b/]
   };
   return (terms[key]||[new RegExp(`\\b${String(key).replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&')}\\b`,'i')]).some(re=>re.test(source));
 }
