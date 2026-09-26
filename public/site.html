@@ -5502,7 +5502,7 @@ window.__dinliminateReleaseMigration=(async()=>{
   } catch(e) { console.warn('Dinliminate cache cleanup skipped',e); }
 })();
 </script>
-<link rel="stylesheet" href="./launch-hardening.css?v=p701"><script src="./launch-hardening.js?v=p701" defer></script><style id="dinliminate-p641-controls">
+<link rel="stylesheet" href="./launch-hardening.css?v=p702"><script src="./launch-hardening.js?v=p702" defer></script><style id="dinliminate-p641-controls">
   .game-bottom{display:flex!important;gap:7px!important;flex-wrap:wrap!important;justify-content:center!important;margin-top:8px!important}
   .food-secondary-action{min-height:34px!important;padding:0 12px!important;font-size:.55rem!important;font-weight:850!important}
   .pass-around-btn,.restaurant-pass-btn,#passAroundBtn,#restaurantPassAroundBtn{border-color:rgba(103,196,155,.32)!important;color:#a5ebcc!important;background:rgba(103,196,155,.09)!important}
@@ -6118,7 +6118,7 @@ let foodPreferences = readFoodPreferences();
 let motionTiltEnabled = safeRead('dinliminateMotionTilt','false') === 'true';
 let motionTiltActive = false;
 let motionBaseline = { beta: null, gamma: null };
-const DINLIMINATE_VERSION = 'p701';
+const DINLIMINATE_VERSION = 'p702';
 try{ localStorage.removeItem('dinliminateRestaurantPhotoCache'); }catch{}
 const RESTAURANT_MAX_MILES = 100; // Final launch cap; provider search is tiled for wider areas.
 const RESTAURANT_FALLBACK_PHOTO = 'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=1200';
@@ -8094,7 +8094,7 @@ body.restaurant-mode .restaurant-location-row .restaurant-address-suggestions{le
 <script id="dinliminate-restaurant-search-v4">
 (function(){
   'use strict';
-  const V='p701', $=id=>document.getElementById(id), text=v=>String(v??'').trim();
+  const V='p702', $=id=>document.getElementById(id), text=v=>String(v??'').trim();
   const field=()=>$('restaurantLocationInput'), box=()=>$('restaurantAddressSuggestions');
   let suggestTimer=0,suggestSeq=0,requestSeq=0,locationSeq=0,selected=null,abortCtl=null;
   const isTest=!!window.__DIN_TEST__;
@@ -8139,7 +8139,7 @@ body.restaurant-mode .restaurant-location-row .restaurant-address-suggestions{le
   window.loadRestaurantsForArea=find;window.loadRestaurantsForCurrentLocation=locate;window.locateRestaurants=locate;window.setRestaurantRadiusV3=(m)=>{restaurantRadiusMiles=Math.min(RESTAURANT_MAX_MILES,Math.max(1,Number(m)||10));safeWrite('dinliminateRestaurantRadius',String(restaurantRadiusMiles));return true;};
 })();
 </script>\n
-<style id="dinliminate-p701-final-controls">
+<style id="dinliminate-p702-final-controls">
 @media(max-width:700px){
   body.restaurant-mode .restaurant-location-row{grid-template-columns:minmax(0,1fr) 86px 70px 64px!important;gap:6px!important;align-items:center!important;}
   body.restaurant-mode .restaurant-location-field{grid-column:1/-1!important;}
@@ -8156,7 +8156,7 @@ body.restaurant-mode .restaurant-location-row .restaurant-address-suggestions{le
 .restaurant-card,.restaurant-card .restaurant-photo,.restaurant-card .restaurant-body{touch-action:pan-y!important;}
 .stack-card [data-card-action],.restaurant-card [data-rest-action]{touch-action:manipulation!important;}
 </style>
-<script id="dinliminate-p701-final-runtime">
+<script id="dinliminate-p702-final-runtime">
 (function(){
   'use strict';
   const $=id=>document.getElementById(id);
