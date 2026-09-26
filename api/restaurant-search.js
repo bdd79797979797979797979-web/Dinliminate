@@ -3,7 +3,7 @@ const GOOGLE_MAX_RADIUS_MI = 31.0686; // 50,000m Places Nearby Search limit.
 const CACHE_TTL_MS = 120 * 1000;
 const RESULT_LIMIT = 300;
 const POSTPASS_QUERY_LIMIT = 3500;
-const VERSION = 'restaurant-v700';
+const VERSION = 'restaurant-v701';
 
 const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || '';
 const POSTPASS_ENDPOINT = 'https://postpass.geofabrik.de/api/0.2/interpreter';
@@ -730,7 +730,7 @@ async function handler(req, res) {
     if (mode === 'resolve') {
       const q = String(req.query.q || '').trim().slice(0, 240);
       if (q.length < 2) return res.status(400).json({ ok:false, code:'EMPTY_LOCATION', message:'Enter a location.' });
-      publicCache(res, 300); return res.status(200).json({ ok: true, version: VERSION, ...(await resolve(q)) });
+      const magicKey = String(req.query?.magicKey || '').trim().slice(0, 500); publicCache(res, 300); return res.status(200).json({ ok: true, version: VERSION, ...(await resolve(q, magicKey)) });
     }
 
     if (mode === 'reverse') {
