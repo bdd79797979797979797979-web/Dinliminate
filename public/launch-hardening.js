@@ -1,7 +1,7 @@
 /* Dinliminate P633 — launch interaction layer. */
 (function(){
   'use strict';
-  const VERSION='p703';
+  const VERSION='p704';
   const ROUND_SCHEMA=2;
   const $=id=>document.getElementById(id);
   const html=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
