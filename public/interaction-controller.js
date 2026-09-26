@@ -1,126 +1,220 @@
-/* Dinliminate P703 — single owner for card swipes and decision buttons. */
+/* Dinliminate P706 — one authoritative Tinder interaction controller. */
 (function(){
   'use strict';
-  const VERSION='p705';
+  const VERSION='p706';
   const $=id=>document.getElementById(id);
 
-  const safeCall=(fn,...args)=>{
-    try { return typeof fn==='function' ? fn(...args) : undefined; }
-    catch(err){ console.error('Dinliminate action failed',err); return undefined; }
+  const state=new WeakMap();
+  let suppressClickUntil=0;
+
+  const call=(name,...args)=>{
+    try{
+      const fn=window[name];
+      return typeof fn==='function' ? fn(...args) : undefined;
+    }catch(err){
+      console.error('Dinliminate interaction failed:',name,err);
+      return undefined;
+    }
   };
 
-  function bindFoodCard(card){ return bindCard(card,'food'); }
-  function bindRestaurantCard(card){ return bindCard(card,'restaurant'); }
+  function isInteractiveTarget(target){
+    return !!target?.closest?.('button,a,input,select,textarea,[data-card-action],[data-rest-action]');
+  }
+
+  function activeCard(root){
+    return root?.querySelector?.('.active') || null;
+  }
+
+  function cleanup(card){
+    const s=state.get(card);
+    if(!s)return;
+    if(s.raf){cancelAnimationFrame(s.raf);s.raf=0;}
+    card.classList.remove('dragging','show-cut','show-hold');
+    card.style.removeProperty('transform');
+    card.style.removeProperty('transition');
+    card.style.removeProperty('opacity');
+    s.dragging=false;
+    s.pointerId=null;
+  }
+
+  function applyDrag(card,dx,dy){
+    const s=state.get(card);
+    if(!s)return;
+    if(s.raf)cancelAnimationFrame(s.raf);
+    s.pending={dx,dy};
+    s.raf=requestAnimationFrame(()=>{
+      s.raf=0;
+      const p=s.pending||{dx:0,dy:0};
+      const w=Math.max(300,card.getBoundingClientRect().width||360);
+      const max=Math.max(260,w*.95);
+      const x=Math.max(-max,Math.min(max,p.dx));
+      const y=Math.max(-18,Math.min(18,p.dy*.08));
+      const rotate=x*.055;
+      card.style.transform=`translate3d(${x}px,${y}px,0) rotate(${rotate}deg)`;
+      card.classList.toggle('show-cut',x < -55);
+      card.classList.toggle('show-hold',x > 55);
+    });
+  }
+
+  function animateDecision(card,dx,mode){
+    const s=state.get(card);
+    if(!s)return;
+    s.dragging=false;
+    card.style.transition='transform .28s cubic-bezier(.22,.75,.25,1), opacity .24s ease';
+    const distance=Math.max(520,window.innerWidth*1.15);
+    const out=dx<0 ? -distance : distance;
+    card.style.transform=`translate3d(${out}px,0,0) rotate(${dx<0?-20:20}deg)`;
+    card.style.opacity='0';
+    suppressClickUntil=Date.now()+450;
+
+    window.setTimeout(()=>{
+      if(mode==='food'){
+        if(dx<0)call('cutCurrent',card);
+        else call('holdCurrent',card);
+      }else{
+        if(dx<0)call('restaurantCut',card);
+        else call('restaurantKeep',card);
+      }
+    },70);
+  }
 
   function bindCard(card,mode){
-    if(!card || card.dataset.dinInteractionBound==='p705') return card;
-    card.dataset.dinInteractionBound='p705';
+    if(!card)return null;
+    const prior=state.get(card);
+    if(prior?.version===VERSION)return card;
+    if(prior?.cleanup){try{prior.cleanup();}catch{}}
+
+    const s={version:VERSION,pointerId:null,startX:0,startY:0,lastX:0,lastTime:0,dragging:false,moved:false,raf:0,pending:null};
+    state.set(card,s);
     card.style.touchAction='none';
+    card.style.userSelect='none';
+    card.style.webkitUserSelect='none';
 
-    let pointerId=null;
-    let startX=0,startY=0,lastX=0;
-    let moved=false,dragging=false;
-
-    const isAction=e=>!!e?.target?.closest?.('button,a,[data-card-action],[data-rest-action]');
-    const isBusy=()=>mode==='food'
-      ? !!document.body.classList.contains('din-transitioning')
-      : !!document.body.classList.contains('din-restaurant-transitioning');
-
-    const reset=()=>{
-      card.classList.remove('dragging','show-cut','show-hold');
-      card.style.removeProperty('transform');
-      pointerId=null;dragging=false;moved=false;
-    };
-
-    const begin=e=>{
-      if(e.pointerType==='mouse'&&e.button!==0)return;
-      if(isAction(e)||isBusy())return;
-      pointerId=e.pointerId;startX=lastX=e.clientX;startY=e.clientY;moved=false;dragging=true;
+    const down=e=>{
+      if(e.pointerType==='mouse' && e.button!==0)return;
+      if(isInteractiveTarget(e.target))return;
+      if(document.body.classList.contains('din-transitioning')||document.body.classList.contains('din-restaurant-transitioning'))return;
+      s.pointerId=e.pointerId;
+      s.startX=s.lastX=e.clientX;
+      s.startY=e.clientY;
+      s.lastTime=performance.now();
+      s.dragging=true;
+      s.moved=false;
       card.classList.add('dragging');
       try{card.setPointerCapture(e.pointerId);}catch{}
       if(e.cancelable)e.preventDefault();
     };
 
     const move=e=>{
-      if(!dragging||e.pointerId!==pointerId)return;
-      const dx=e.clientX-startX,dy=e.clientY-startY;lastX=e.clientX;
-      if(Math.abs(dy)>Math.abs(dx)*1.25&&Math.abs(dy)>12){reset();return;}
-      if(Math.abs(dx)>8)moved=true;
+      if(!s.dragging||e.pointerId!==s.pointerId)return;
+      const now=performance.now();
+      const dx=e.clientX-s.startX;
+      const dy=e.clientY-s.startY;
+      s.lastX=e.clientX;
+      s.lastTime=now;
+      if(Math.abs(dy)>Math.abs(dx)*1.35 && Math.abs(dy)>16){
+        cleanup(card);
+        return;
+      }
+      if(Math.abs(dx)>8)s.moved=true;
       if(e.cancelable)e.preventDefault();
-      const width=Math.max(280,card.getBoundingClientRect().width||350);
-      const max=Math.max(220,width*.84);
-      const px=Math.max(-max,Math.min(max,dx));
-      card.style.transform=`translate(${px}px,${Math.max(-12,Math.min(12,dy*.07))}px) rotate(${px*.045}deg)`;
-      card.classList.toggle('show-cut',px<-48);
-      card.classList.toggle('show-hold',px>48);
+      applyDrag(card,dx,dy);
     };
 
-    const finish=(e,cancelled)=>{
-      if(!dragging||e.pointerId!==pointerId)return;
-      const dx=e.clientX-startX;
-      const act=!cancelled&&moved&&Math.abs(dx)>=54;
-      reset();
-      if(!act)return;
-      if(mode==='food'){
-        if(dx<0)safeCall(window.cutCurrent,card);
-        else safeCall(window.holdCurrent,card);
+    const end=e=>{
+      if(!s.dragging||e.pointerId!==s.pointerId)return;
+      const dx=e.clientX-s.startX;
+      const dt=Math.max(16,performance.now()-s.lastTime);
+      const vx=(e.clientX-s.lastX)/dt;
+      const threshold=Math.max(58,Math.min(110,card.getBoundingClientRect().width*.18));
+      const committed=s.moved && (Math.abs(dx)>=threshold || Math.abs(vx)>=0.62);
+      s.pointerId=null;
+      if(!committed){
+        cleanup(card);
+        return;
+      }
+      const modeName=mode==='food'?'food':'restaurant';
+      animateDecision(card,dx,modeName);
+      s.pointerId=null;
+    };
+
+    const cancel=e=>{
+      if(!s.dragging||e.pointerId!==s.pointerId)return;
+      cleanup(card);
+    };
+
+    const click=e=>{
+      if(Date.now()<suppressClickUntil || Date.now()<Number(card.dataset.swipeSuppressUntil||0))return;
+      if(isInteractiveTarget(e.target))return;
+      if(s.moved){
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if(mode==='restaurant'){
+        const item=call('currentRestaurant');
+        if(item)call('openDetails',item);
       }else{
-        if(dx<0)safeCall(window.restaurantCut,card);
-        else safeCall(window.restaurantKeep,card);
+        call('openCurrentDetails');
       }
     };
 
-    card.addEventListener('pointerdown',begin,{passive:false});
+    card.addEventListener('pointerdown',down,{passive:false});
     card.addEventListener('pointermove',move,{passive:false});
-    card.addEventListener('pointerup',e=>finish(e,false),{passive:false});
-    card.addEventListener('pointercancel',e=>finish(e,true),{passive:false});
-    card.addEventListener('lostpointercapture',e=>{if(e.pointerId===pointerId)finish(e,false);},{passive:false});
+    card.addEventListener('pointerup',end,{passive:false});
+    card.addEventListener('pointercancel',cancel,{passive:false});
+    card.addEventListener('lostpointercapture',cancel,{passive:false});
+    card.addEventListener('click',click);
+    s.cleanup=()=>{cleanup(card);};
     return card;
   }
 
-  function current(root,mode){
-    const card=root?.querySelector?.('.active');
-    return bindCard(card,mode);
-  }
-
   function bindButtons(){
-    if(document.documentElement.dataset.dinDecisionClicks==='p705') return;
-    document.documentElement.dataset.dinDecisionClicks='p705';
-    document.addEventListener('click',e=>{
-      const btn=e.target?.closest?.('#cutBtn,#holdBtn,#backBtn,#hideBtn,#restaurantCutBtn,#restaurantKeepBtn,#restaurantBackAction,#restaurantHideBtn');
-      if(!btn)return;
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      switch(btn.id){
-        case 'cutBtn': return safeCall(window.cutCurrent,$('stage')?.querySelector?.('.active'));
-        case 'holdBtn': return safeCall(window.holdCurrent,$('stage')?.querySelector?.('.active'));
-        case 'backBtn': return safeCall(window.undoLast);
-        case 'hideBtn': return safeCall(window.hideCurrent);
-        case 'restaurantCutBtn': return safeCall(window.restaurantCut,$('restaurantStage')?.querySelector?.('.active'));
-        case 'restaurantKeepBtn': return safeCall(window.restaurantKeep,$('restaurantStage')?.querySelector?.('.active'));
-        case 'restaurantBackAction': return safeCall(window.restaurantUndo);
-        case 'restaurantHideBtn': return safeCall(window.restaurantHide);
-      }
-    },true);
+    const pairs=[
+      ['cutBtn','cutCurrent','stage'],
+      ['holdBtn','holdCurrent','stage'],
+      ['backBtn','undoLast',null],
+      ['hideBtn','hideCurrent',null],
+      ['restaurantCutBtn','restaurantCut','restaurantStage'],
+      ['restaurantKeepBtn','restaurantKeep','restaurantStage'],
+      ['restaurantBackAction','restaurantUndo',null],
+      ['restaurantHideBtn','restaurantHide',null]
+    ];
+    for(const [id,fn,rootId] of pairs){
+      const btn=$(id);
+      if(!btn || btn.dataset.p706Bound==='1')continue;
+      btn.dataset.p706Bound='1';
+      btn.addEventListener('click',e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        const card=rootId?activeCard($(rootId)):null;
+        call(fn,card);
+      });
+      btn.addEventListener('pointerup',e=>e.stopPropagation(),{passive:true});
+    }
   }
 
-  function bindVisibleCards(){
-    bindFoodCard($('stage')?.querySelector?.('.active'));
-    bindRestaurantCard($('restaurantStage')?.querySelector?.('.active'));
+  function bindVisible(){
+    bindCard(activeCard($('stage')),'food');
+    bindCard(activeCard($('restaurantStage')),'restaurant');
+    bindButtons();
   }
 
   function install(){
-    bindButtons();
-    bindVisibleCards();
-
+    bindVisible();
     ['stage','restaurantStage'].forEach(id=>{
-      const root=$(id);if(!root)return;
-      const observer=new MutationObserver(bindVisibleCards);
-      observer.observe(root,{childList:true,subtree:true});
+      const root=$(id);
+      if(!root || root.dataset.p706Observer==='1')return;
+      root.dataset.p706Observer='1';
+      new MutationObserver(()=>bindVisible()).observe(root,{childList:true,subtree:true});
     });
-
-    window.DinliminateInteraction={version:VERSION,bindFoodCard,bindRestaurantCard,bindButtons,bindVisibleCards};
+    window.DinliminateInteraction={
+      version:VERSION,
+      bindFoodCard:card=>bindCard(card,'food'),
+      bindRestaurantCard:card=>bindCard(card,'restaurant'),
+      bindVisibleCards:bindVisible,
+      bindButtons
+    };
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
