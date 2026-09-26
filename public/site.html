@@ -7,7 +7,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/dinliminate.webmanifest">
-<link rel="stylesheet" href="/clean.css">
+<script>
+window.__dinliminateCleanBoot=(async function(){
+  try{if('serviceWorker' in navigator){var regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(function(r){return r.unregister().catch(function(){return false})}))}}catch(e){}
+  try{if('caches' in window){var names=await caches.keys();await Promise.all(names.filter(function(n){return /dinliminate/i.test(String(n))}).map(function(n){return caches.delete(n)}))}}catch(e){}
+})();
+</script>
+<link rel="stylesheet" href="/clean.css?v=clean2">
 <title>Dinliminate</title>
 </head>
 <body>
@@ -50,6 +56,6 @@
 </main>
 
 <div class="modal hidden" id="modal"><div class="sheet" id="sheet"></div></div>
-<script src="/clean-app.js" defer></script>
+<script>window.__dinliminateCleanBoot.then(function(){var s=document.createElement("script");s.src="/clean-app.js?v=clean2";s.defer=true;document.body.appendChild(s)})</script>
 </body>
 </html>
