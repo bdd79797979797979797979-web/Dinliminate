@@ -55,6 +55,41 @@
   let calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);
   let legacyShowGame,legacyResetList,legacyRenderStage,legacyUndo,legacyCut,legacyHold,legacyShowRestaurant,legacyApplyRestaurant,legacyRenderRestaurant,legacyRestaurantCut,legacyRestaurantKeep,legacyRestaurantUndo,legacyRenderLibrary,legacyShowWinner;
 
+  function enterRestaurantModeDirect(){
+    currentWinnerMode='restaurant';
+    document.body.classList.remove('game-mode','finalist-mode');
+    document.body.classList.add('restaurant-mode');
+    document.title='Dinliminate — Find a Restaurant';
+    $('homePanel')?.classList.add('hidden');
+    $('gamePanel')?.classList.add('hidden');
+    $('winnerPanel')?.classList.add('hidden');
+    $('restaurantPanel')?.classList.remove('hidden');
+    restaurantTransitioning=false;
+    if(typeof setupRestaurantTools==='function') setupRestaurantTools();
+    if(typeof setRadiusUi==='function') setRadiusUi();
+    const hasRound=restaurantRoundInProgress&&((activeRestaurants||[]).length+(holdingRestaurants||[]).length)>0;
+    if(hasRound){
+      if(typeof renderRestaurantQuickCuts==='function') renderRestaurantQuickCuts();
+      if(typeof renderRestaurantStage==='function') renderRestaurantStage();
+      if(typeof syncRestaurantTools==='function') syncRestaurantTools();
+      if(typeof setStatus==='function') setStatus(String((activeRestaurants||[]).length)+' restaurants left · continuing your round','live');
+      return true;
+    }
+    if((restaurantItems||[]).length && !(activeRestaurants||[]).length && !(holdingRestaurants||[]).length){
+      activeRestaurants=[...(restaurantItems||[])];
+      holdingRestaurants=[];
+      restaurantRoundInProgress=true;
+    }
+    if(typeof renderRestaurantQuickCuts==='function') renderRestaurantQuickCuts();
+    if(typeof renderRestaurantStage==='function') renderRestaurantStage();
+    if(typeof syncRestaurantTools==='function') syncRestaurantTools();
+    if(!(restaurantItems||[]).length && typeof setStatus==='function') setStatus('Enter a street address, city, or ZIP, then tap Find.','live');
+    return true;
+  }
+
+  // Define this immediately so a fast tap cannot hit a missing or unfinished wrapper.
+  window.showRestaurantMode=enterRestaurantModeDirect;
+
   function restaurantRoundSnapshot(){
     return {schema:ROUND_SCHEMA,version:VERSION,savedAt:Date.now(),items:uniq([...(restaurantItems||[]),...(activeRestaurants||[]),...(holdingRestaurants||[])],restKey),active:[...(activeRestaurants||[])],holding:[...(holdingRestaurants||[])],finalist:!!restaurantFinalistMode,exhausted:!!restaurantEliminationExhausted,quick:[...(restaurantQuickCuts||new Set())],filters:{...(restaurantFilters||{}),query:String(restaurantFilters?.query||'')},radius:Number(restaurantRadiusMiles)||10,locationMode:restaurantLocationMode,area:restaurantAreaCoords,userCity:String(userCity||'')};
   }
@@ -261,11 +296,10 @@
     window.holdCurrent=function(card){if(pass?.mode==='food')return passAct('hold',card);const r=legacyHold.apply(this,arguments);setTimeout(()=>saveFoodRoundState(),220);return r;};
     window.undoLast=function(){const r=legacyUndo.apply(this,arguments);recomputeFoodManual();saveFoodRoundState();renderFoodQuickCuts();return r;};
     window.showRestaurantMode=()=>{
-      if(!restaurantHydrationDone&&restaurantHydrationPromise){return restaurantHydrationPromise.then(()=>window.showRestaurantMode());}
-      const hasRound=restaurantRoundInProgress&&((activeRestaurants||[]).length+(holdingRestaurants||[]).length)>0;
-      const r=legacyShowRestaurant.apply(this,arguments);setupRestaurantTools();renderRestaurantQuickCuts();
-      if(hasRound){setRadiusUi?.();renderRestaurantStage();syncRestaurantTools();setStatus(`${activeRestaurants.length} restaurants left · continuing your round`,'live');}
-      return r;
+      if(!restaurantHydrationDone&&restaurantHydrationPromise){
+        return restaurantHydrationPromise.then(()=>enterRestaurantModeDirect());
+      }
+      return enterRestaurantModeDirect();
     };
     window.applyRestaurantData=function(){const r=legacyApplyRestaurant.apply(this,arguments);restaurantBase=uniq([...(activeRestaurants||[]),...(holdingRestaurants||[])],restKey);restaurantManual.clear();restaurantRoundInProgress=!!restaurantItems.length;saveRestaurantRoundState();renderRestaurantQuickCuts();return r;};
     window.renderRestaurantStage=wrapRestaurantRender();
