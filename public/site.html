@@ -5502,7 +5502,7 @@ window.__dinliminateReleaseMigration=(async()=>{
   } catch(e) { console.warn('Dinliminate cache cleanup skipped',e); }
 })();
 </script>
-<link rel="stylesheet" href="./launch-hardening.css?v=p702"><script src="./launch-hardening.js?v=p702" defer></script><style id="dinliminate-p641-controls">
+<link rel="stylesheet" href="./launch-hardening.css?v=p703"><script src="./launch-hardening.js?v=p703" defer></script><script src="./interaction-controller.js?v=p703" defer></script><style id="dinliminate-p641-controls">
   .game-bottom{display:flex!important;gap:7px!important;flex-wrap:wrap!important;justify-content:center!important;margin-top:8px!important}
   .food-secondary-action{min-height:34px!important;padding:0 12px!important;font-size:.55rem!important;font-weight:850!important}
   .pass-around-btn,.restaurant-pass-btn,#passAroundBtn,#restaurantPassAroundBtn{border-color:rgba(103,196,155,.32)!important;color:#a5ebcc!important;background:rgba(103,196,155,.09)!important}
@@ -6118,7 +6118,7 @@ let foodPreferences = readFoodPreferences();
 let motionTiltEnabled = safeRead('dinliminateMotionTilt','false') === 'true';
 let motionTiltActive = false;
 let motionBaseline = { beta: null, gamma: null };
-const DINLIMINATE_VERSION = 'p702';
+const DINLIMINATE_VERSION = 'p703';
 try{ localStorage.removeItem('dinliminateRestaurantPhotoCache'); }catch{}
 const RESTAURANT_MAX_MILES = 100; // Final launch cap; provider search is tiled for wider areas.
 const RESTAURANT_FALLBACK_PHOTO = 'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=1200';
@@ -6825,7 +6825,7 @@ function renderStage() {
       </div>
     </article>`;
   }).join('');
-  if (!searchQuery) bindSwipe($('stage').querySelector('.active'));
+  if (!searchQuery) window.DinliminateInteraction?.bindFoodCard($('stage').querySelector('.active'));
   preloadNextPhotos();
 }
 
@@ -6872,101 +6872,7 @@ function undoLast() {
   toast('Back one step.');
 }
 
-function bindSwipe(card) {
-  if (!card || card.__dinSwipeBound) return;
-  card.__dinSwipeBound = true;
-  let activePointerId = null;
-  let startX = 0, startY = 0, lastX = 0, moved = false, dragging = false;
-
-  const reset = () => {
-    card.classList.remove('dragging','show-cut','show-hold');
-    card.style.removeProperty('transform');
-    dragging = false;
-    activePointerId = null;
-  };
-
-  const isActionTarget = e => !!e?.target?.closest?.('button,a,[data-card-action]');
-
-  const start = (id, x, y) => {
-    if (transitioning || !activeItems.length || isActionTarget({target:document.elementFromPoint(x,y)})) return false;
-    activePointerId = id;
-    startX = lastX = x;
-    startY = y;
-    moved = false;
-    dragging = true;
-    card.classList.add('dragging');
-    return true;
-  };
-
-  const move = (id, x, y, e) => {
-    if (!dragging || activePointerId !== id) return;
-    const dx = x - startX, dy = y - startY;
-    lastX = x;
-    if (!moved && Math.abs(dx) < 8) return;
-    if (Math.abs(dy) > Math.abs(dx) * 1.15 && Math.abs(dy) > 12) {
-      reset();
-      return;
-    }
-    moved = Math.abs(dx) > 8;
-    if (e?.cancelable) e.preventDefault();
-    const width = Math.max(280, card.getBoundingClientRect().width || 350);
-    const maxDrag = Math.max(220, width * .82);
-    const px = Math.max(-maxDrag, Math.min(maxDrag, dx));
-    card.style.transform = `translate(${px}px,${Math.max(-10,Math.min(10,dy*.08))}px) rotate(${px*.05}deg)`;
-    card.classList.toggle('show-cut', px < -48);
-    card.classList.toggle('show-hold', px > 48);
-  };
-
-  const end = (id, x=lastX, cancelled=false) => {
-    if (!dragging || activePointerId !== id) return;
-    const dx = x - startX;
-    const shouldAct = !cancelled && moved && Math.abs(dx) >= 54;
-    reset();
-    if (!shouldAct || transitioning) return;
-    if (dx < 0) cutCurrent(card); else holdCurrent(card);
-  };
-
-  if (window.PointerEvent) {
-    card.addEventListener('pointerdown', e => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      if (!start(e.pointerId, e.clientX, e.clientY)) return;
-      try { card.setPointerCapture(e.pointerId); } catch {}
-    }, {passive:false});
-    card.addEventListener('pointermove', e => move(e.pointerId, e.clientX, e.clientY, e), {passive:false});
-    card.addEventListener('pointerup', e => {
-      end(e.pointerId, e.clientX, false);
-      try { card.releasePointerCapture(e.pointerId); } catch {}
-    }, {passive:false});
-    card.addEventListener('pointercancel', e => end(e.pointerId, e.clientX, true), {passive:false});
-    card.addEventListener('lostpointercapture', e => {
-      if (activePointerId === e.pointerId) end(e.pointerId, lastX, false);
-    }, {passive:false});
-  } else {
-    let touchId = null;
-    card.addEventListener('touchstart', e => {
-      if (transitioning || touchId !== null || isActionTarget(e)) return;
-      const t = e.changedTouches?.[0];
-      if (!t) return;
-      if (start(`touch-${t.identifier}`, t.clientX, t.clientY)) touchId = t.identifier;
-    }, {passive:false});
-    card.addEventListener('touchmove', e => {
-      if (touchId === null) return;
-      const t = [...e.changedTouches].find(x => x.identifier === touchId);
-      if (t) move(`touch-${touchId}`, t.clientX, t.clientY, e);
-    }, {passive:false});
-    card.addEventListener('touchend', e => {
-      if (touchId === null) return;
-      const t = [...e.changedTouches].find(x => x.identifier === touchId);
-      end(`touch-${touchId}`, t?.clientX ?? lastX, false);
-      touchId = null;
-    }, {passive:false});
-    card.addEventListener('touchcancel', e => {
-      if (touchId === null) return;
-      end(`touch-${touchId}`, lastX, true);
-      touchId = null;
-    }, {passive:false});
-  }
-}
+function bindSwipe(card){ window.DinliminateInteraction?.bindFoodCard(card); }
 function currentIndex() {
   const items = searchQuery ? availableItems() : activeItems;
   return items.length ? activeItems.indexOf(items[0]) : -1;
@@ -7629,82 +7535,7 @@ function renderRestaurantStage(){
   syncRestaurantActionLabels();
 }
 function currentRestaurant(){return filteredRestaurants()[0]||null;}
-function bindRestaurantSwipe(card){
-  if(!card || card.__dinSwipeBound)return;
-  card.__dinSwipeBound=true;
-  let activePointerId=null,startX=0,startY=0,lastX=0,moved=false,dragging=false;
-
-  const reset=()=>{
-    card.classList.remove('dragging','show-cut','show-hold');
-    card.style.removeProperty('transform');
-    dragging=false;
-    activePointerId=null;
-  };
-  const isActionTarget=e=>!!e?.target?.closest?.('button,a,[data-rest-action]');
-  const start=(id,x,y)=>{
-    if(restaurantTransitioning||!currentRestaurant()||isActionTarget({target:document.elementFromPoint(x,y)}))return false;
-    activePointerId=id;startX=lastX=x;startY=y;moved=false;dragging=true;card.classList.add('dragging');return true;
-  };
-  const move=(id,x,y,e)=>{
-    if(!dragging||activePointerId!==id)return;
-    const dx=x-startX,dy=y-startY;lastX=x;
-    if(!moved&&Math.abs(dx)<8)return;
-    if(Math.abs(dy)>Math.abs(dx)*1.15&&Math.abs(dy)>12){reset();return;}
-    moved=Math.abs(dx)>8;
-    if(e?.cancelable)e.preventDefault();
-    const width=Math.max(280,card.getBoundingClientRect().width||350);
-    const maxDrag=Math.max(220,width*.82);
-    const px=Math.max(-maxDrag,Math.min(maxDrag,dx));
-    card.style.transform=`translate(${px}px,${Math.max(-10,Math.min(10,dy*.08))}px) rotate(${px*.05}deg)`;
-    card.classList.toggle('show-cut',px<-48);
-    card.classList.toggle('show-hold',px>48);
-  };
-  const end=(id,x=lastX,cancelled=false)=>{
-    if(!dragging||activePointerId!==id)return;
-    const dx=x-startX,shouldAct=!cancelled&&moved&&Math.abs(dx)>=54;
-    reset();
-    if(!shouldAct||restaurantTransitioning)return;
-    if(dx<0)restaurantCut(card);else restaurantKeep(card);
-  };
-
-  if(window.PointerEvent){
-    card.addEventListener('pointerdown',e=>{
-      if(e.pointerType==='mouse'&&e.button!==0)return;
-      if(!start(e.pointerId,e.clientX,e.clientY))return;
-      try{card.setPointerCapture(e.pointerId);}catch{}
-    },{passive:false});
-    card.addEventListener('pointermove',e=>move(e.pointerId,e.clientX,e.clientY,e),{passive:false});
-    card.addEventListener('pointerup',e=>{
-      end(e.pointerId,e.clientX,false);
-      try{card.releasePointerCapture(e.pointerId);}catch{}
-    },{passive:false});
-    card.addEventListener('pointercancel',e=>end(e.pointerId,e.clientX,true),{passive:false});
-    card.addEventListener('lostpointercapture',e=>{
-      if(activePointerId===e.pointerId)end(e.pointerId,lastX,false);
-    },{passive:false});
-  }else{
-    let touchId=null;
-    card.addEventListener('touchstart',e=>{
-      if(restaurantTransitioning||touchId!==null||isActionTarget(e))return;
-      const t=e.changedTouches?.[0];if(!t)return;
-      if(start(`touch-${t.identifier}`,t.clientX,t.clientY))touchId=t.identifier;
-    },{passive:false});
-    card.addEventListener('touchmove',e=>{
-      if(touchId===null)return;
-      const t=[...e.changedTouches].find(x=>x.identifier===touchId);
-      if(t)move(`touch-${touchId}`,t.clientX,t.clientY,e);
-    },{passive:false});
-    card.addEventListener('touchend',e=>{
-      if(touchId===null)return;
-      const t=[...e.changedTouches].find(x=>x.identifier===touchId);
-      end(`touch-${touchId}`,t?.clientX??lastX,false);touchId=null;
-    },{passive:false});
-    card.addEventListener('touchcancel',e=>{
-      if(touchId===null)return;
-      end(`touch-${touchId}`,lastX,true);touchId=null;
-    },{passive:false});
-  }
-}
+function bindRestaurantSwipe(card){ window.DinliminateInteraction?.bindRestaurantCard(card); }
 function restaurantCut(card=$('restaurantStage')?.querySelector('.active')){
   if(passAroundSession?.mode==='restaurant') { passAroundVote('cut',card,true); return; }
   const item=currentRestaurant(); if(!item||restaurantTransitioning)return;
@@ -7887,7 +7718,6 @@ bind('stage','click',(e)=>{
   if(btn.dataset.cardAction==='menu') openMenu();
   if(btn.dataset.cardAction==='save'){const item=activeItems[currentIndex()];if(item){const now=toggleSaved(item);btn.textContent=now?'♥':'♡';toast(now?'Saved ♥':'Removed from Saved');}}
 });
-bind('hideBtn','click',(e)=>{ e?.stopPropagation?.(); hideCurrent(); });
 bind('settingsBtn','click',openSettings); bind('historyMenuBtn','click',()=>openLibrary('history'));
 bind('closeSettingsBtn','click',closeSettings);
 
@@ -7907,12 +7737,9 @@ bind('searchBtn','click',startSearch);
 bind('restaurantInlineSearchInput','input',e=>{restaurantFilters.query=String(e.target.value||'');saveRestaurantFilters();renderRestaurantQuickCuts();renderRestaurantStage();});
 bind('restaurantInlineSearchClear','click',()=>{restaurantFilters.query='';saveRestaurantFilters();const i=$('restaurantInlineSearchInput');if(i)i.value='';renderRestaurantQuickCuts();renderRestaurantStage();$('restaurantSearchBtn')?.focus();});
 
-bind('cutBtn','click',()=>cutCurrent($('stage')?.querySelector('.active')));
-bind('backBtn','click',undoLast);
 bind('confirmCancelBtn','click',closeConfirm);
 bind('confirmCutBtn','click',confirmHide);
 bind('confirmBackdrop','click',e=>{ if(e.target === $('confirmBackdrop')) closeConfirm(); });
-bind('holdBtn','click',()=>holdCurrent($('stage')?.querySelector('.active')));
 syncDecisionActionLabels();
 
 bind('modalBackdrop','click',e=>{ if(e.target === $('modalBackdrop')) closeModal(); });
@@ -7920,7 +7747,6 @@ bind('restaurantBackBtn','click',()=>{setNavActive('navHome');goHome();});
 bind('restaurantMenuBtn','click',openMenu);
 // Restaurant location controls are exclusively owned by the authoritative location controller below.
 
-bind('restaurantCutBtn','click',()=>restaurantCut($('restaurantStage')?.querySelector('.active')));bind('restaurantKeepBtn','click',()=>restaurantKeep($('restaurantStage')?.querySelector('.active')));bind('restaurantBackAction','click',restaurantUndo);bind('restaurantHideBtn','click',restaurantHide);
 bind('closeLibraryBtn','click',closeLibrary); bind('clearLibraryBtn','click',()=>{ if(libraryTab==='saved'){savedItems=[];saveSavedItems();} else {historyItems=[];saveHistoryItems();} renderLibrary(); toast(libraryTab==='saved'?'Saved list cleared.':'History cleared.'); }); bind('libraryBackdrop','click',e=>{if(e.target===$('libraryBackdrop'))closeLibrary();}); document.querySelectorAll('[data-library-tab]').forEach(b=>b.addEventListener('click',()=>{libraryTab=b.dataset.libraryTab;renderLibrary();}));
 function exportDinliminateData(){
   const payload={version:DINLIMINATE_VERSION,exportedAt:new Date().toISOString(),data:{custom:safeRead('dinliminateCustom','[]'),hidden:safeRead('dinliminateHidden','[]'),saved:safeRead('dinliminateSaved','[]'),history:safeRead('dinliminateHistory','[]'),lastWinner:safeRead('dinliminateLastWinner','null'),preferences:safeRead('dinliminatePreferences','{}'),hideEnabled:safeRead('dinliminateHideEnabled','true'),radius:safeRead('dinliminateRestaurantRadius','10'),motionTilt:safeRead('dinliminateMotionTilt','false'),restaurantArea:safeRead('dinliminateRestaurantArea',''),restaurantFilters:safeRead('dinliminateRestaurantFilters','{}'),deletedFoods:safeRead('dinliminateDeletedFoods','[]'),restaurantReports:safeRead('dinliminateRestaurantReports','[]')}};
