@@ -6154,14 +6154,48 @@ function openDinliminateIDB(){
 async function idbPut(key,value,store='records'){const db=await openDinliminateIDB();if(!db)return;try{await new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put({key,value,updatedAt:Date.now()});tx.oncomplete=resolve;tx.onerror=reject;});}catch(e){console.warn('IndexedDB mirror failed',e);}}
 async function idbDelete(key,store='records'){const db=await openDinliminateIDB();if(!db)return;try{await new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(key);tx.oncomplete=resolve;tx.onerror=reject;});}catch(e){console.warn('IndexedDB delete mirror failed',e);}}
 function mirrorDataState(){idbPut('custom',customItems);idbPut('saved',savedItems);idbPut('history',historyItems);idbPut('hidden',hiddenItems);idbPut('preferences',foodPreferences);}
+async function hydratePrimaryStorage(){
+  const specs=[
+    ['custom','dinliminateCustom','dinliminateCustomUpdatedAt'],
+    ['saved','dinliminateSaved','dinliminateSavedUpdatedAt'],
+    ['history','dinliminateHistory','dinliminateHistoryUpdatedAt'],
+    ['hidden','dinliminateHidden','dinliminateHiddenUpdatedAt'],
+    ['preferences','dinliminatePreferences','dinliminatePreferencesUpdatedAt']
+  ];
+  let changed=false;
+  for(const [store,key,stampKey] of specs){
+    const row=await idbGet(key,store);
+    if(!row || row.value==null || !Number.isFinite(Number(row.updatedAt))) continue;
+    if(Number(row.updatedAt)<=Number(safeRead(stampKey,'0'))) continue;
+    try{
+      const value=row.value;
+      if(store==='custom' && Array.isArray(value)) customItems=value.map(i=>({...i,id:i.id||slugId(i.name,'custom')}));
+      else if(store==='saved' && Array.isArray(value)) savedItems=value.slice(0,100);
+      else if(store==='history' && Array.isArray(value)) historyItems=value.slice(0,100);
+      else if(store==='hidden' && Array.isArray(value)) hiddenItems=value.slice(0,500);
+      else if(store==='preferences' && value && typeof value==='object') foodPreferences=Object.assign({quick:false,comfort:false},value);
+      else continue;
+      safeWrite(key,JSON.stringify(value)); safeWrite(stampKey,String(row.updatedAt)); changed=true;
+    }catch{}
+  }
+  if(changed){
+    allItems=dedupe([...homeMeals,...customItems]);
+    if(!document.body.classList.contains('game-mode')&&!document.body.classList.contains('restaurant-mode')){
+      activeItems=allItems.filter(i=>i.type!=='restaurant'&&!isDeletedFood(i)&&(!hideEnabled||!isHidden(i)));
+      originalCount=Math.max(activeItems.length,1);
+    }
+    updateHomeCount(); syncWinnerAccess?.();
+  }
+  return changed;
+}
 
 function safeWrite(key,value){try{localStorage.setItem(key,value);return true;}catch(err){console.warn('Dinliminate storage write failed',key,err);toast('Your browser could not save that change.');return false;}}
 function readSavedItems(){try{const v=JSON.parse(safeRead('dinliminateSaved','[]'));return Array.isArray(v)?v:[];}catch{return [];}}
-function saveSavedItems(){const seen=new Set();savedItems=savedItems.filter(x=>{const k=savedKey(x);if(!k||seen.has(k))return false;seen.add(k);return true;}).slice(0,100);safeWrite('dinliminateSaved',JSON.stringify(savedItems));idbPut('saved',savedItems);}
+function saveSavedItems(){const seen=new Set();savedItems=savedItems.filter(x=>{const k=savedKey(x);if(!k||seen.has(k))return false;seen.add(k);return true;}).slice(0,100);const now=Date.now();safeWrite('dinliminateSaved',JSON.stringify(savedItems));safeWrite('dinliminateSavedUpdatedAt',String(now));idbPut('saved',savedItems);}
 function readHistoryItems(){try{const v=JSON.parse(safeRead('dinliminateHistory','[]'));return Array.isArray(v)?v:[];}catch{return [];}}
-function saveHistoryItems(){historyItems=historyItems.slice(0,100);safeWrite('dinliminateHistory',JSON.stringify(historyItems));idbPut('history',historyItems);}
+function saveHistoryItems(){historyItems=historyItems.slice(0,100);const now=Date.now();safeWrite('dinliminateHistory',JSON.stringify(historyItems));safeWrite('dinliminateHistoryUpdatedAt',String(now));idbPut('history',historyItems);}
 function readFoodPreferences(){try{return Object.assign({quick:false,comfort:false},JSON.parse(safeRead('dinliminatePreferences','{}')));}catch{return {quick:false,comfort:false};}}
-function saveFoodPreferences(){safeWrite('dinliminatePreferences',JSON.stringify(foodPreferences));idbPut('preferences',foodPreferences);}
+function saveFoodPreferences(){const now=Date.now();safeWrite('dinliminatePreferences',JSON.stringify(foodPreferences));safeWrite('dinliminatePreferencesUpdatedAt',String(now));idbPut('preferences',foodPreferences);}
 function savedKey(item){return `${String(item?.type||'home').toLowerCase()}::${String(item?.id||item?.name||'').trim().toLowerCase()}`;}
 function isSaved(item){const k=savedKey(item);return savedItems.some(x=>savedKey(x)===k);}
 function toggleSaved(item){if(!item)return false;const k=savedKey(item);const i=savedItems.findIndex(x=>savedKey(x)===k);if(i>=0){savedItems.splice(i,1);saveSavedItems();return false;}savedItems.unshift({id:item.id||null,name:item.name,type:item.type||'home',tags:item.tags||[],photo:item.photo||photoFor(item),address:item.address||'',website:item.website||'',phone:item.phone||'',lat:item.lat,lon:item.lon,category:item.category||'',distanceMiles:item.distanceMiles,searchArea:item.searchArea||safeRead('dinliminateRestaurantArea','')});saveSavedItems();return true;}
@@ -6178,7 +6212,7 @@ function recordHistory(item,mode){
   }
   historyItems.unshift(record); historyItems=historyItems.slice(0,100); saveHistoryItems();
 }
-function saveHiddenItems(){ safeWrite('dinliminateHidden', JSON.stringify(hiddenItems)); idbPut('hidden',hiddenItems); }
+function saveHiddenItems(){ const now=Date.now(); safeWrite('dinliminateHidden', JSON.stringify(hiddenItems)); safeWrite('dinliminateHiddenUpdatedAt',String(now)); idbPut('hidden',hiddenItems); }
 function hiddenKey(item){ const type=String(item?.type||'home'); const id=String(item?.id||item?.name||'').trim().toLowerCase(); return type==='restaurant' ? `restaurant:${id}` : id; }
 function isHidden(item){ if(!hideEnabled)return false; const key=hiddenKey(item); const name=String(item?.name||'').trim().toLowerCase(); return hiddenItems.includes(key) || hiddenItems.includes(name); }
 function catalogItems(){ return allItems.filter(i => !isDeletedFood(i) && (!hideEnabled || !isHidden(i))); }
@@ -6458,7 +6492,7 @@ function readCustomItems() {
     return Array.isArray(parsed) ? parsed.map(i=>({...i,id:i.id||slugId(i.name,'custom')})) : [];
   } catch { return []; }
 }
-function saveCustomItems() { safeWrite('dinliminateCustom', JSON.stringify(customItems)); idbPut('custom',customItems); }
+function saveCustomItems() { const now=Date.now(); safeWrite('dinliminateCustom', JSON.stringify(customItems)); safeWrite('dinliminateCustomUpdatedAt',String(now)); idbPut('custom',customItems); }
 
 async function mirrorPendingPhoto(id,dataUrl){
   if(!dataUrl)return;
