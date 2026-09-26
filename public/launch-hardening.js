@@ -281,7 +281,7 @@
         const dx=x-startX,act=!cancelled&&moved&&Math.abs(dx)>=54;
         reset();
         if(!act)return;
-        if(restaurant){window.restaurantCut(card);if(dx>0)window.restaurantKeep(card);}else{window.cutCurrent(card);if(dx>0)window.holdCurrent(card);}
+        if(restaurant){if(dx<0)window.restaurantCut(card);else window.restaurantKeep(card);}else{if(dx<0)window.cutCurrent(card);else window.holdCurrent(card);}
       };
       card.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;begin(e.pointerId,e.clientX,e.clientY,e);},{passive:false});
       card.addEventListener('pointermove',e=>move(e.pointerId,e.clientX,e.clientY,e),{passive:false});
