@@ -1,9 +1,9 @@
-const MAX_RADIUS_MI = 50;
+const MAX_RADIUS_MI = 100;
 const GOOGLE_MAX_RADIUS_MI = 31.0686; // 50,000m Places Nearby Search limit.
 const CACHE_TTL_MS = 120 * 1000;
 const RESULT_LIMIT = 300;
-const POSTPASS_QUERY_LIMIT = 5000;
-const VERSION = 'restaurant-v634';
+const POSTPASS_QUERY_LIMIT = 3500;
+const VERSION = 'restaurant-v700';
 
 const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || '';
 const POSTPASS_ENDPOINT = 'https://postpass.geofabrik.de/api/0.2/interpreter';
@@ -286,7 +286,7 @@ WHERE geom && ST_MakeEnvelope(${sqlQuote(b.west)},${sqlQuote(b.south)},${sqlQuot
     OR lower(coalesce(tags->>'brand','')) ~ 'mcdonald|taco bell|wendy|burger king|kfc|chick|popeyes|subway|sonic|arby|whataburger|five guys|culver|raising cane|wingstop|bojangles|cook out|jack in the box|dairy queen|hardee|del taco|checkers|rally|zaxby|church.s chicken|captain d|long john silver|jimmy john|jersey mike|firehouse subs|little caesars|domino|papa john|pizza hut|marco.s pizza|krystal|steak ?n shake|white castle|freddy|in[- ]n[- ]out|carl.s jr|el pollo loco|panda express|jack.s'
     OR lower(coalesce(tags->>'operator','')) ~ 'mcdonald|taco bell|wendy|burger king|kfc|chick|popeyes|subway|sonic|arby|whataburger|five guys|culver|raising cane|wingstop|bojangles|cook out|jack in the box|dairy queen|hardee|del taco|checkers|rally|zaxby|church.s chicken|captain d|long john silver|jimmy john|jersey mike|firehouse subs|little caesars|domino|papa john|pizza hut|marco.s pizza|krystal|steak ?n shake|white castle|freddy|in[- ]n[- ]out|carl.s jr|el pollo loco|panda express|jack.s'
   )
-LIMIT 12000`;
+LIMIT 3500`;
 }
 
 function postpassTileCenters(lat, lon, radiusMi) {
@@ -576,7 +576,7 @@ async function suggest(q, limit = 7) {
   return out;
 }
 
-async function resolve(q) {
+async function resolve(q, magicKey = '') {
   const query = String(q || '').trim();
   if (!query) throw Object.assign(new Error('Enter a location.'), { code: 'EMPTY_LOCATION' });
   const direct = [];
@@ -596,14 +596,24 @@ async function resolve(q) {
 
   if (!direct.length) {
     try {
-      const url = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?' + new URLSearchParams({
-        SingleLine: query, f: 'json', maxLocations: '8', outFields: 'Match_addr,Addr_type,City,Region,Postal', forStorage: 'false', countryCode: 'USA'
-      });
+      const params = {
+        SingleLine: query, f: 'json', maxLocations: '8',
+        outFields: 'Match_addr,Addr_type,City,Region,Postal', forStorage: 'false', countryCode: 'USA'
+      };
+      if (magicKey) params.magicKey = String(magicKey);
+      const url = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?' + new URLSearchParams(params);
       const data = await fetchJson(url, {}, 9000);
       for (const c of data?.candidates || []) {
         const loc = c.location || {}, a = c.attributes || {};
         const lat = num(loc.y), lon = num(loc.x);
-        if (Number.isFinite(lat) && Number.isFinite(lon)) direct.push({ lat, lon, display: String(c.address || a.Match_addr || query), precision: String(a.Addr_type || 'place'), score: num(c.score, 0) + scoreAddress(query, { display: c.address || a.Match_addr || query }) });
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          direct.push({
+            lat, lon,
+            display: String(c.address || a.Match_addr || query),
+            precision: String(a.Addr_type || 'place'),
+            score: num(c.score, 0) + scoreAddress(query, { display: c.address || a.Match_addr || query }) + (magicKey ? 500 : 0)
+          });
+        }
       }
     } catch {}
   }
@@ -755,8 +765,10 @@ async function handler(req, res) {
 
     return res.status(400).json({ ok: false, code: 'UNKNOWN_MODE', message: 'Unknown restaurant search mode.' });
   } catch (err) {
-    console.error('restaurant-search-v626', err);
-    return res.status(502).json({
+    console.error('restaurant-search-' + VERSION, err);
+    const code = String(err?.code || 'SERVICE');
+    const status = code === 'EMPTY_LOCATION' ? 400 : code === 'NOT_FOUND' ? 422 : code === 'BAD_COORDINATES' ? 400 : 503;
+    return res.status(status).json({
       ok: false,
       version: VERSION,
       code: String(err?.code || 'SERVICE'),
