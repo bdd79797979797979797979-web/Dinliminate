@@ -458,3 +458,17 @@ body.restaurant-mode .restaurant-menu-card{margin:5px 0 0;padding:6px 8px;border
 body.restaurant-mode .restaurant-menu-card span{font-size:.44rem;text-transform:uppercase;letter-spacing:.10em;font-weight:900;color:#839087;}
 body.restaurant-mode .restaurant-menu-card strong{font-size:.57rem;line-height:1.2;color:#2c4037;font-weight:800;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 @media(max-width:430px){body.game-mode .game-bottom{gap:5px!important;margin-top:5px!important;}body.game-mode .game-bottom .food-secondary-action{min-height:32px!important;height:32px!important;padding:0 9px!important;font-size:.50rem!important;}body.restaurant-mode .restaurant-utility-bar{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;}body.restaurant-mode .restaurant-utility-btn{padding:0 6px!important;font-size:.51rem!important;}body.restaurant-mode .restaurant-menu-card strong{font-size:.54rem!important;}}
+
+/* Final p700 action hierarchy: distinct but secondary Pass Around treatment. */
+#passAroundBtn.pass-food-btn,#passAroundBtn.pass-food-btn:visited{
+  background:rgba(102,196,155,.10)!important;
+  border:1px solid rgba(102,196,155,.30)!important;
+  color:#9fe2c1!important;
+  box-shadow:none!important;
+}
+#passAroundBtn.pass-food-btn:hover{background:rgba(102,196,155,.15)!important;color:#b5efd2!important;}
+body.restaurant-mode .restaurant-pass-utility{
+  background:rgba(102,196,155,.11)!important;
+  border-color:rgba(102,196,155,.32)!important;
+  color:#a7e7c9!important;
+}
