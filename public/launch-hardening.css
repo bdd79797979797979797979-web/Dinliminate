@@ -473,7 +473,7 @@ body.restaurant-mode .restaurant-pass-utility{
   color:#a7e7c9!important;
 }
 
-/* Dinliminate P704 — final decision-controls ownership and iPhone hit targets. */
+/* Dinliminate P705 — final decision-controls ownership and iPhone hit targets. */
 body.game-mode #gesture-actions,
 body.restaurant-mode #restaurantGestureActions{
   pointer-events:auto!important;
