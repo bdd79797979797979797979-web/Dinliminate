@@ -3,7 +3,7 @@ const GOOGLE_MAX_RADIUS_MI = 31.0686; // 50,000m Places Nearby Search limit.
 const CACHE_TTL_MS = 120 * 1000;
 const RESULT_LIMIT = 300;
 const POSTPASS_QUERY_LIMIT = 3500;
-const VERSION = 'restaurant-v703';
+const VERSION = 'restaurant-v704';
 
 const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || '';
 const POSTPASS_ENDPOINT = 'https://postpass.geofabrik.de/api/0.2/interpreter';
