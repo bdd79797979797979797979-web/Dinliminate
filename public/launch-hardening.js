@@ -14,6 +14,25 @@
   const RESTAURANT_ROUND_KEY='dinliminateRestaurantRound';
   const RESTAURANT_ROUND_MAX_AGE=24*60*60*1000;
   async function idbGet(key,store='records'){try{const db=await openDinliminateIDB?.();if(!db)return null;return await new Promise((resolve,reject)=>{const tx=db.transaction(store,'readonly');const req=tx.objectStore(store).get(key);req.onsuccess=()=>resolve(req.result||null);req.onerror=reject;});}catch{return null;}}
+  async function hydratePrimaryStorage(){
+    const specs=[['custom','dinliminateCustom','dinliminateCustomUpdatedAt'],['saved','dinliminateSaved','dinliminateSavedUpdatedAt'],['history','dinliminateHistory','dinliminateHistoryUpdatedAt'],['hidden','dinliminateHidden','dinliminateHiddenUpdatedAt'],['preferences','dinliminatePreferences','dinliminatePreferencesUpdatedAt']];
+    let changed=false;
+    for(const [store,key,stampKey] of specs){
+      const row=await idbGet(key,store);
+      if(!row || row.value==null || !Number.isFinite(Number(row.updatedAt)) || Number(row.updatedAt)<=Number(safeRead(stampKey,'0'))) continue;
+      try{
+        if(store==='custom' && Array.isArray(row.value)) customItems=row.value.map(i=>({...i,id:i.id||slugId(i.name,'custom')}));
+        else if(store==='saved' && Array.isArray(row.value)) savedItems=row.value.slice(0,100);
+        else if(store==='history' && Array.isArray(row.value)) historyItems=row.value.slice(0,100);
+        else if(store==='hidden' && Array.isArray(row.value)) hiddenItems=row.value.slice(0,500);
+        else if(store==='preferences' && row.value && typeof row.value==='object') foodPreferences=Object.assign({quick:false,comfort:false},row.value);
+        else continue;
+        safeWrite(key,JSON.stringify(row.value)); safeWrite(stampKey,String(row.updatedAt)); changed=true;
+      }catch{}
+    }
+    if(changed){allItems=dedupe([...homeMeals,...customItems]);activeItems=allItems.filter(i=>i.type!=='restaurant'&&!isDeletedFood(i)&&(!hideEnabled||!isHidden(i)));originalCount=Math.max(activeItems.length,1);updateHomeCount();syncWinnerAccess?.();}
+    return changed;
+  }
   function roundSnapshot(){return {schema:ROUND_SCHEMA,version:VERSION,savedAt:Date.now(),base:foodBase,active:activeItems||[],holding:holdingItems||[],finalist:!!finalistMode,originalCount,searchQuery:String(searchQuery||''),quick:[...foodQuickHidden],manual:[...foodManual]};}
   function saveFoodRoundState(){if(!foodInProgress){safeWrite(FOOD_ROUND_KEY,'');idbDelete?.('foodRound');return;}const state=roundSnapshot();safeWrite(FOOD_ROUND_KEY,JSON.stringify(state));idbPut?.('foodRound',state);}
   async function hydrateFoodRound(){
@@ -231,8 +250,9 @@
   }
   window.DinliminateBackToStart=backToStartFresh;
 
-  function install(){
+  async function install(){
     safeWrite('dinliminateLaunchVersion',VERSION);
+    await hydratePrimaryStorage().catch(()=>false);
     $('startOverBtn')?.replaceChildren(document.createTextNode('Start fresh'));
     legacyShowGame=window.showGame;legacyResetList=window.resetList;legacyRenderStage=window.renderStage;legacyUndo=window.undoLast;legacyCut=window.cutCurrent;legacyHold=window.holdCurrent;legacyShowRestaurant=window.showRestaurantMode;legacyApplyRestaurant=window.applyRestaurantData;legacyRenderRestaurant=window.renderRestaurantStage;legacyRestaurantCut=window.restaurantCut;legacyRestaurantKeep=window.restaurantKeep;legacyRestaurantUndo=window.restaurantUndo;legacyRenderLibrary=window.renderLibrary;legacyShowWinner=window.showWinner;
     window.showGame=()=>{if(!foodHydrationDone){foodHydrationPromise.then(()=>window.showGame());return;}return foodInProgress&&((activeItems||[]).length+(holdingItems||[]).length)>0?resumeFood():freshFood();};window.resetList=()=>{foodHydrationDone=true;return freshFood();};
