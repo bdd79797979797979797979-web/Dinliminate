@@ -5530,7 +5530,22 @@ window.__dinliminateReleaseMigration=(async()=>{
   .pass-around-cancel{border:1px solid rgba(20,52,39,.13);background:#eee8df;color:#44564e}
   .pass-around-start{border:1px solid #2a6753;background:#153a2e;color:#fff}
   @media(max-width:520px){.game-bottom{gap:5px!important}.food-secondary-action{flex:1 1 30%;padding:0 8px!important;font-size:.51rem!important}.restaurant-tool-btn{min-height:32px;padding:0 10px}.restaurant-inline-search input{height:34px}}
-</style></head>
+</style>
+<style id="dinliminate-p707-input-hit-fix">
+body.restaurant-mode .restaurant-location-block,
+body.restaurant-mode .restaurant-location-row,
+body.restaurant-mode .restaurant-location-field,
+body.restaurant-mode .restaurant-location-field input,
+body.restaurant-mode .restaurant-location-btn,
+body.restaurant-mode .restaurant-find-btn,
+body.restaurant-mode .restaurant-radius-inline,
+body.restaurant-mode .restaurant-radius-inline select,
+body.restaurant-mode .restaurant-radius-display{position:relative!important;z-index:140!important;pointer-events:auto!important;touch-action:manipulation!important;}
+body.restaurant-mode .restaurant-stage{z-index:1!important;}
+body.restaurant-mode .restaurant-location-field input{user-select:text!important;-webkit-user-select:text!important;caret-color:#17352c!important;}
+body.restaurant-mode .restaurant-address-suggestions{z-index:300!important;pointer-events:auto!important;}
+</style>
+</head>
 <body>
 <div class="app">
 <header>
@@ -7773,7 +7788,23 @@ bind('hideToggle','click',()=>{hideEnabled=!hideEnabled;safeWrite('dinliminateHi
 bind('exportDataBtn','click',exportDinliminateData);
 bind('importDataInput','change',e=>importDinliminateData(e.target.files?.[0]));
 
-bind('homeRestaurantQuick','click',()=>{showRestaurantMode();const area=$('restaurantLocationInput')?.value.trim()||safeRead('dinliminateRestaurantArea','');if(area)window.loadRestaurantsForArea?.(area);else window.locateRestaurants?.();});
+bind('homeRestaurantQuick','click',()=>{
+  closeMenu();
+  try{window.DinliminateRestaurantSearchV4?.cancel?.();}catch{}
+  const input=$('restaurantLocationInput');
+  showRestaurantMode();
+  setTimeout(()=>{
+    const area=String(input?.value||'').trim()||safeRead('dinliminateRestaurantArea','');
+    if(input&&!area){
+      input.value='';
+      input.focus({preventScroll:true});
+    }else if(input&&area){
+      input.value=area;
+      input.focus({preventScroll:true});
+      input.setSelectionRange?.(input.value.length,input.value.length);
+    }
+  },0);
+});
 bind('prefQuick','click',()=>{foodPreferences.quick=!foodPreferences.quick;saveFoodPreferences();$('prefQuick')?.classList.toggle('on',foodPreferences.quick);$('prefQuick')?.setAttribute('aria-pressed',String(foodPreferences.quick));});
 bind('prefComfort','click',()=>{foodPreferences.comfort=!foodPreferences.comfort;saveFoodPreferences();$('prefComfort')?.classList.toggle('on',foodPreferences.comfort);$('prefComfort')?.setAttribute('aria-pressed',String(foodPreferences.comfort));});
 
