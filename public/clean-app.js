@@ -1,7 +1,7 @@
 
 (function(){
 'use strict';
-var VERSION='clean-4-core', API='/api/restaurant-search';
+var VERSION='clean-4-phase2', API='/api/restaurant-search';
 var PHOTO={
 spaghetti:'https://images.pexels.com/photos/6287520/pexels-photo-6287520.jpeg?auto=compress&cs=tinysrgb&w=1400',
 chickenRice:'https://images.pexels.com/photos/5192403/pexels-photo-5192403.jpeg?auto=compress&cs=tinysrgb&w=1400',
@@ -50,6 +50,75 @@ smoothie:'https://images.pexels.com/photos/13116680/pexels-photo-13116680.jpeg?a
 var foods=[
 ['Spaghetti',['pasta','italian','quick'],'spaghetti'],['Grilled Chicken + Rice',['chicken','healthy','rice'],'chickenRice'],['Tacos',['mexican','quick'],'tacos'],['Stir Fry',['asian','chicken','quick','rice','vegetable'],'stirFry'],['Homemade Pizza',['pizza','italian','quick'],'pizza'],['Burgers',['burger','quick'],'burger'],['Eggs & Toast',['breakfast','quick'],'eggs'],['Soup & Sandwich',['soup','sandwich','quick','comfort'],'soupSandwich'],['Pasta Alfredo',['pasta','italian','comfort'],'pasta'],['Salad Bowl',['healthy','vegetable','quick'],'salad'],['Mac & Cheese',['comfort','pasta','quick'],'mac'],['Fried Rice',['asian','quick','rice'],'friedRice'],['Grilled Cheese',['sandwich','quick','comfort'],'grilledCheese'],['Burrito Bowl',['mexican','beans','rice'],'burrito'],['Southern Vegetable Plate',['southern','country','vegetable','corn','beans','quick'],'southernVegPlate'],['Meatloaf & Mashed Potatoes',['comfort','beef','potato'],'meatloaf'],['Beef Stroganoff',['beef','comfort','pasta'],'stroganoff'],['Grilled Salmon',['seafood','healthy'],'salmon'],['Lasagna',['pasta','italian','comfort'],'lasagna'],['Chicken Parmesan',['chicken','italian','comfort'],'chickenParm'],['Goulash',['beef','pasta','tomato','comfort'],'goulash'],['Southern Vegetable Beef',['southern','beef','vegetable','tomato','corn','beans','soup'],'southernVegBeef'],['Chicken Tenders & Fries',['chicken','fries','quick','comfort'],'chickenTenders'],['Sloppy Joes & Fries',['beef','fries','quick','comfort'],'sloppy'],['Cabbage & Sausage',['southern','country','vegetable','quick'],'cabbage'],['Steak & Potato',['beef','steak','potato','comfort'],'steak'],['Chicken & Dumplings',['chicken','country','comfort','soup'],'chickenNoodle'],['Potato Soup',['soup','potato','comfort','quick'],'potatoSoup'],['Beef Stew',['beef','soup','comfort'],'beefStew'],['Chicken Noodle Soup',['chicken','soup','comfort','quick'],'chickenNoodle'],['Chicken Wings',['chicken','wings','quick','comfort'],'wings'],['Bacon & Eggs',['breakfast','quick','bacon'],'baconEggs'],['Gyro',['mediterranean','sandwich','quick'],'gyro'],['Bowl of Cereal',['breakfast','quick'],'cereal'],['Frozen Dinner',['quick','comfort'],'frozen'],['Fish Sticks',['seafood','fried','quick'],'fishSticks'],['Philly Cheesesteak',['beef','sandwich','comfort'],'philly'],['Buttermilk & Cornbread',['southern','country','quick','breakfast'],'buttermilk'],['Peanut Butter & Jelly Sandwich + Chips',['sandwich','quick'],'pbj'],['Ham Sandwich + Chips',['sandwich','quick'],'ham'],['Parfait',['breakfast','sweet','quick'],'parfait'],['Smoothie',['breakfast','drink','healthy','quick'],'smoothie']
 ].map(function(x,i){return{id:'food-'+(i+1),name:x[0],tags:x[1],photo:PHOTO[x[2]]||PHOTO.burger,type:'food'}});
+
+
+// Phase 2 recovery: curated meals that existed in the fuller pre-clean catalog.
+// Kept as data only; legacy UI/controller code is intentionally not restored.
+var RECOVERED_FOODS=[
+  ['Santa Fe Soup',['soup','mexican','beans','quick'],'santaFeSoup'],
+  ['Chicken Fried Steak',['country','beef','comfort'],'chickenFriedSteak'],
+  ['Country Fried Chicken',['country','chicken','comfort'],'countryFriedChicken'],
+  ['Pot Roast',['beef','country','comfort','potato'],'potRoast'],
+  ['BBQ Pulled Pork',['bbq','pork','quick'],'pulledPork'],
+  ['BBQ Ribs',['bbq','pork','comfort'],'bbqRibs'],
+  ['Pork Chops',['pork','country'],'porkChops'],
+  ['Fried Catfish',['seafood','country','comfort'],'friedCatfish'],
+  ['Shrimp & Grits',['seafood','country','comfort'],'shrimpGrits'],
+  ['Chili',['beef','beans','soup','comfort'],'chili'],
+  ['Chili Cheese Baked Potato',['beef','beans','comfort','quick','potato'],'chiliPotato'],
+  ['Loaded Baked Potato',['vegetable','comfort','quick','potato'],'loadedBaked'],
+  ['Mashed Potatoes & Gravy',['country','comfort','potato'],'mashedGravy'],
+  ['Biscuits & Gravy',['country','breakfast','comfort'],'biscuitsGravy'],
+  ['Sausage & Peppers',['pork','italian','quick'],'sausagePeppers'],
+  ['Chicken & Waffles',['chicken','breakfast','comfort'],'chickenWaffles'],
+  ['Meatball Subs',['beef','sandwich','italian','comfort'],'meatballSub'],
+  ['Tuna Melt',['seafood','sandwich','quick','comfort'],'tunaMelt']
+].map(function(x,i){return{id:'food-recovered-'+(i+1),name:x[0],tags:x[1],photo:x[2],type:'food'}});
+
+Object.keys({
+  santaFeSoup:1,
+  chickenFriedSteak:1,
+  countryFriedChicken:1,
+  potRoast:1,
+  pulledPork:1,
+  bbqRibs:1,
+  porkChops:1,
+  friedCatfish:1,
+  shrimpGrits:1,
+  chili:1,
+  chiliPotato:1,
+  loadedBaked:1,
+  mashedGravy:1,
+  biscuitsGravy:1,
+  sausagePeppers:1,
+  chickenWaffles:1,
+  meatballSub:1,
+  tunaMelt:1
+}).forEach(function(k){
+  var urls={
+    santaFeSoup:'https://images.pexels.com/photos/28286253/pexels-photo-28286253.jpeg?auto=compress&cs=tinysrgb&w=1400',
+    chickenFriedSteak:'https://vinovoss.com/images/dishes/chicken-fried-steak_600px.webp?org_if_sml=1&q=85&w=1200',
+    countryFriedChicken:'https://recipesclare.com/assets/images/1751102299554-1rk4gwow.webp',
+    potRoast:'https://images.pexels.com/photos/6545671/pexels-photo-6545671.jpeg?auto=compress&cs=tinysrgb&w=1400',
+    pulledPork:'https://www.ajsbbq.co.nz/assets/gallery-pulled-pork-DxzwwzGu.jpg',
+    bbqRibs:'https://images.pexels.com/photos/1270276/pexels-photo-1270276.jpeg?auto=compress&cs=tinysrgb&w=1400',
+    porkChops:'https://images.pexels.com/photos/332784/pexels-photo-332784.jpeg?auto=compress&cs=tinysrgb&w=1400',
+    friedCatfish:'https://images.pexels.com/photos/29516766/pexels-photo-29516766.jpeg?auto=compress&cs=tinysrgb&w=1400',
+    shrimpGrits:'https://southernbite.com/wp-content/uploads/2025/06/Shrimp-and-Grits-4-500x500.jpg',
+    chili:'https://snapcalorie-webflow-website.s3.us-east-2.amazonaws.com/media/food_pics_v2/medium/homemade_chili_con_carne.jpg',
+    chiliPotato:'https://butterhearth.com/assets/images/1763506457858-ku289il9.webp',
+    loadedBaked:'https://images.pexels.com/photos/13915036/pexels-photo-13915036.jpeg?auto=compress&cs=tinysrgb&w=1400',
+    mashedGravy:'https://snapcalorie-webflow-website.s3.us-east-2.amazonaws.com/media/food_pics_v2/medium/one_plate_coocked__potato_and_gravy.jpg',
+    biscuitsGravy:'https://snapcalorie-webflow-website.s3.us-east-2.amazonaws.com/media/food_pics_v2/medium/sausage_gravy.jpg',
+    sausagePeppers:'https://www.pastapiracy.com/assets/images/simmering_sausage_peppers.png',
+    chickenWaffles:'https://images.pexels.com/photos/31706937/pexels-photo-31706937.jpeg?auto=compress&cs=tinysrgb&w=1400',
+    meatballSub:'https://bigbitesedenderry.com/img/gallery/7.jpg',
+    tunaMelt:'https://kookycrunch.com/assets/images/1759837530030-r4i-jr61.webp'
+  };
+  var item=RECOVERED_FOODS.find(function(x){return x[2]===k});
+  if(item)item.photo=urls[k];
+});
+RECOVERED_FOODS.forEach(function(f){if(!foods.some(function(x){return x.name.toLowerCase()===f.name.toLowerCase()}))foods.push(f)});
 
 var FOOD_CUTS=[['Burgers','burger'],['Pizza','pizza'],['Chicken','chicken'],['Mexican','mexican'],['Italian','italian'],['Pasta','pasta'],['Potato','potato'],['Southern','southern'],['Healthy / Salad','healthy'],['Soup / Stew','soup'],['Sandwiches','sandwich'],['Seafood','seafood'],['Steak','steak'],['Breakfast','breakfast']];
 var REST_CUTS=[['Fast Food','fast_food'],['Burgers','burger'],['Chicken','chicken'],['Wings','wings'],['Pizza','pizza'],['Mexican','mexican'],['Sandwiches','sandwich'],['Breakfast','breakfast'],['BBQ','bbq'],['Southern','southern'],['American','american'],['Seafood','seafood'],['Italian','italian'],['Chinese','chinese'],['Japanese','japanese'],['Thai','thai'],['Indian','indian'],['Mediterranean','mediterranean'],['Potato','potato'],['Healthy / Salad','healthy'],['Soup / Stew','soup'],['Steak','steak']];
@@ -111,7 +180,7 @@ function renderFood(){
  bindSwipe($('foodCard'),'food');$('foodCut').onclick=function(){if(!passAwareCut('food'))cutFood()};$('foodMaybe').onclick=function(){if(!passAwareMaybe('food'))maybeFood()};$('foodBack').onclick=undoFood;$('foodHide').onclick=hideFood;$('foodDetails').onclick=function(){details(f)};$('foodSave').onclick=function(){toggleSaved(f,$('foodSave'))};setActions(true,'food')
 }
 function randomFood(){var a=foodEligible();if(a.length<2)return;var i=Math.floor(Math.random()*a.length);pushFood();foodDeck=foodDeck.filter(function(x){return x.id!==a[i].id});saveFoodRound();renderFood()}
-function restaurantPhoto(r){return r.photo||r.photoUrl||r.image||r.imageUrl||PHOTO.restaurant}
+function restaurantPhoto(r){return r.photo||r.photoUrl||r.image||r.imageUrl||(r.photoName?(API+'?mode=photo&name='+encodeURIComponent(r.photoName)):PHOTO.restaurant)}
 function pushRestaurant(){restaurantUndo.push({rows:restaurants.map(function(x){return Object.assign({},x)}),held:restaurantHeld.map(function(x){return Object.assign({},x)}),quick:Array.from(restaurantQuick),query:restaurantQuery,open:restaurantOpen});if(restaurantUndo.length>30)restaurantUndo.shift()}
 function cutRestaurant(){var r=restEligible()[0];if(!r)return;if(restEligible().length===1){winner(r,'restaurant');return}pushRestaurant();restaurants=restaurants.filter(function(x){return rKey(x)!==rKey(r)});if(!restEligible().length&&restaurantHeld.length){restaurants=restaurantHeld;restaurantHeld=[]}saveRestaurantRound();renderRestaurant()}
 function maybeRestaurant(){var r=restEligible()[0];if(!r)return;if(restEligible().length===1){winner(r,'restaurant');return}pushRestaurant();restaurantHeld.push(r);restaurants=restaurants.filter(function(x){return rKey(x)!==rKey(r)});if(!restEligible().length&&restaurantHeld.length){restaurants=restaurantHeld;restaurantHeld=[]}saveRestaurantRound();renderRestaurant()}
