@@ -3,7 +3,8 @@ const GOOGLE_MAX_RADIUS_MI = 31.0686; // 50,000m Places Nearby Search limit.
 const CACHE_TTL_MS = 120 * 1000;
 const RESULT_LIMIT = 300;
 const POSTPASS_QUERY_LIMIT = 3500;
-const VERSION = 'restaurant-v705';
+const POSTPASS_CONCURRENCY = 5;
+const VERSION = 'restaurant-v706-core';
 
 const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || '';
 const POSTPASS_ENDPOINT = 'https://postpass.geofabrik.de/api/0.2/interpreter';
@@ -326,8 +327,8 @@ async function postpassSearch(lat, lon, radiusMi) {
   const elements = [];
   const errors = [];
   let calls = 0;
-  for (let i = 0; i < centers.length; i += 3) {
-    const results = await Promise.all(centers.slice(i, i + 3).map(c => postpassOne(c.lat, c.lon, c.radiusMi)));
+  for (let i = 0; i < centers.length; i += POSTPASS_CONCURRENCY) {
+    const results = await Promise.all(centers.slice(i, i + POSTPASS_CONCURRENCY).map(c => postpassOne(c.lat, c.lon, c.radiusMi)));
     calls += results.length;
     for (const result of results) {
       elements.push(...result.elements);
@@ -356,8 +357,8 @@ async function overpassFallback(lat, lon, radiusMi) {
             method: 'POST',
             body: `data=${encodeURIComponent(q)}`,
             headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }
-          }, 7000)
-        : await fetchJson(`${OVERPASS_FALLBACK_ENDPOINT}?data=${encodeURIComponent(q)}`, {}, 7000);
+          }, 5000)
+        : await fetchJson(`${OVERPASS_FALLBACK_ENDPOINT}?data=${encodeURIComponent(q)}`, {}, 5000);
       return {
         elements: Array.isArray(data?.elements) ? data.elements : [],
         ms: Date.now() - started,
@@ -455,7 +456,11 @@ async function doSearch(lat, lon, radius) {
   let fallbackBundle = null;
   let fallbackUsed = false;
 
-  if (!postpassBundle.elements.length) {
+  const postpassHasFastFood = (postpassBundle.elements || []).some(el => {
+    const t = el?.tags || {};
+    return String(t.amenity || '').toLowerCase() === 'fast_food' || isFastFoodText(`${t.name || ''} ${t.brand || ''} ${t.operator || ''} ${t.cuisine || ''} ${t.fast_food || ''}`);
+  });
+  if (!postpassBundle.elements.length || !postpassHasFastFood) {
     fallbackBundle = await overpassFallback(lat, lon, Math.min(radius, 50));
     fallbackUsed = fallbackBundle.elements.length > 0;
   }
