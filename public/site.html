@@ -8023,10 +8023,11 @@ body.restaurant-mode .restaurant-location-row .restaurant-address-suggestions{le
 <script id="dinliminate-restaurant-search-v4">
 (function(){
   'use strict';
-  const V='p643', $=id=>document.getElementById(id), text=v=>String(v??'').trim();
+  const V='p700', $=id=>document.getElementById(id), text=v=>String(v??'').trim();
   const field=()=>$('restaurantLocationInput'), box=()=>$('restaurantAddressSuggestions');
   let suggestTimer=0,suggestSeq=0,requestSeq=0,locationSeq=0,selected=null,abortCtl=null;
-  const isTest=!!window.__DIN_TEST__;\n  const FINAL_RADIUS=()=>Math.min(typeof RESTAURANT_MAX_MILES==='number'?RESTAURANT_MAX_MILES:100,Math.max(1,Number(restaurantRadiusMiles)||10));
+  const isTest=!!window.__DIN_TEST__;
+  const FINAL_RADIUS=()=>Math.min(typeof RESTAURANT_MAX_MILES==='number'?RESTAURANT_MAX_MILES:100,Math.max(1,Number(restaurantRadiusMiles)||10));
   const endpoint=params=>isTest?'https://test.invalid/api/restaurant-search?'+new URLSearchParams(params):new URL('/api/restaurant-search?'+new URLSearchParams(params),location.origin).toString();
   const clearSuggestions=()=>{const b=box();if(b){b.innerHTML='';b.classList.add('hidden');}field()?.setAttribute('aria-expanded','false');};
   const setStatus=(msg,kind='live')=>{try{setRestaurantLocationStatus(msg,kind);}catch{}const e=$('restaurantLocationLabel');if(e){e.classList.toggle('warn',kind==='warn');e.classList.toggle('live',kind==='live');}};
