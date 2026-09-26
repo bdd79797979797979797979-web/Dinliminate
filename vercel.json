@@ -31,6 +31,10 @@
     {
       "source": "/",
       "destination": "/site.html"
+    },
+    {
+      "source": "/",
+      "destination": "/api/clean-entry"
     }
   ]
 }
