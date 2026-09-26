@@ -1,7 +1,7 @@
 /* Dinliminate P703 — single owner for card swipes and decision buttons. */
 (function(){
   'use strict';
-  const VERSION='p704';
+  const VERSION='p705';
   const $=id=>document.getElementById(id);
 
   const safeCall=(fn,...args)=>{
@@ -13,8 +13,8 @@
   function bindRestaurantCard(card){ return bindCard(card,'restaurant'); }
 
   function bindCard(card,mode){
-    if(!card || card.dataset.dinInteractionBound==='p704') return card;
-    card.dataset.dinInteractionBound='p704';
+    if(!card || card.dataset.dinInteractionBound==='p705') return card;
+    card.dataset.dinInteractionBound='p705';
     card.style.touchAction='none';
 
     let pointerId=null;
@@ -84,8 +84,8 @@
   }
 
   function bindButtons(){
-    if(document.documentElement.dataset.dinDecisionClicks==='p704') return;
-    document.documentElement.dataset.dinDecisionClicks='p704';
+    if(document.documentElement.dataset.dinDecisionClicks==='p705') return;
+    document.documentElement.dataset.dinDecisionClicks='p705';
     document.addEventListener('click',e=>{
       const btn=e.target?.closest?.('#cutBtn,#holdBtn,#backBtn,#hideBtn,#restaurantCutBtn,#restaurantKeepBtn,#restaurantBackAction,#restaurantHideBtn');
       if(!btn)return;
