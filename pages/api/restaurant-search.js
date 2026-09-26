@@ -1,9 +1,10 @@
-const MAX_RADIUS_MI = 50;
+const MAX_RADIUS_MI = 100;
 const GOOGLE_MAX_RADIUS_MI = 31.0686; // 50,000m Places Nearby Search limit.
 const CACHE_TTL_MS = 120 * 1000;
 const RESULT_LIMIT = 300;
-const POSTPASS_QUERY_LIMIT = 5000;
-const VERSION = 'restaurant-v634';
+const POSTPASS_QUERY_LIMIT = 3500;
+const POSTPASS_CONCURRENCY = 5;
+const VERSION = 'restaurant-v706-core';
 
 const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || '';
 const POSTPASS_ENDPOINT = 'https://postpass.geofabrik.de/api/0.2/interpreter';
@@ -286,7 +287,7 @@ WHERE geom && ST_MakeEnvelope(${sqlQuote(b.west)},${sqlQuote(b.south)},${sqlQuot
     OR lower(coalesce(tags->>'brand','')) ~ 'mcdonald|taco bell|wendy|burger king|kfc|chick|popeyes|subway|sonic|arby|whataburger|five guys|culver|raising cane|wingstop|bojangles|cook out|jack in the box|dairy queen|hardee|del taco|checkers|rally|zaxby|church.s chicken|captain d|long john silver|jimmy john|jersey mike|firehouse subs|little caesars|domino|papa john|pizza hut|marco.s pizza|krystal|steak ?n shake|white castle|freddy|in[- ]n[- ]out|carl.s jr|el pollo loco|panda express|jack.s'
     OR lower(coalesce(tags->>'operator','')) ~ 'mcdonald|taco bell|wendy|burger king|kfc|chick|popeyes|subway|sonic|arby|whataburger|five guys|culver|raising cane|wingstop|bojangles|cook out|jack in the box|dairy queen|hardee|del taco|checkers|rally|zaxby|church.s chicken|captain d|long john silver|jimmy john|jersey mike|firehouse subs|little caesars|domino|papa john|pizza hut|marco.s pizza|krystal|steak ?n shake|white castle|freddy|in[- ]n[- ]out|carl.s jr|el pollo loco|panda express|jack.s'
   )
-LIMIT 12000`;
+LIMIT 3500`;
 }
 
 function postpassTileCenters(lat, lon, radiusMi) {
@@ -326,8 +327,8 @@ async function postpassSearch(lat, lon, radiusMi) {
   const elements = [];
   const errors = [];
   let calls = 0;
-  for (let i = 0; i < centers.length; i += 3) {
-    const results = await Promise.all(centers.slice(i, i + 3).map(c => postpassOne(c.lat, c.lon, c.radiusMi)));
+  for (let i = 0; i < centers.length; i += POSTPASS_CONCURRENCY) {
+    const results = await Promise.all(centers.slice(i, i + POSTPASS_CONCURRENCY).map(c => postpassOne(c.lat, c.lon, c.radiusMi)));
     calls += results.length;
     for (const result of results) {
       elements.push(...result.elements);
@@ -356,8 +357,8 @@ async function overpassFallback(lat, lon, radiusMi) {
             method: 'POST',
             body: `data=${encodeURIComponent(q)}`,
             headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }
-          }, 7000)
-        : await fetchJson(`${OVERPASS_FALLBACK_ENDPOINT}?data=${encodeURIComponent(q)}`, {}, 7000);
+          }, 5000)
+        : await fetchJson(`${OVERPASS_FALLBACK_ENDPOINT}?data=${encodeURIComponent(q)}`, {}, 5000);
       return {
         elements: Array.isArray(data?.elements) ? data.elements : [],
         ms: Date.now() - started,
@@ -455,7 +456,11 @@ async function doSearch(lat, lon, radius) {
   let fallbackBundle = null;
   let fallbackUsed = false;
 
-  if (!postpassBundle.elements.length) {
+  const postpassHasFastFood = (postpassBundle.elements || []).some(el => {
+    const t = el?.tags || {};
+    return String(t.amenity || '').toLowerCase() === 'fast_food' || isFastFoodText(`${t.name || ''} ${t.brand || ''} ${t.operator || ''} ${t.cuisine || ''} ${t.fast_food || ''}`);
+  });
+  if (!postpassBundle.elements.length || !postpassHasFastFood) {
     fallbackBundle = await overpassFallback(lat, lon, Math.min(radius, 50));
     fallbackUsed = fallbackBundle.elements.length > 0;
   }
@@ -564,19 +569,28 @@ async function suggest(q, limit = 7) {
 
   const settled = await Promise.allSettled(tasks);
   const all = settled.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-  const seen = new Set();
-  const out = [];
-  for (const x of all) {
+  const ql = String(q).toLowerCase().replace(/\s+/g,' ').trim();
+  const scored = all.map((x, index) => {
+    const display = String(x.display || '').toLowerCase();
+    const hasMagic = !!x.magicKey;
+    const exactTokens = ql.split(/[^a-z0-9]+/).filter(t=>t.length>1).filter(t=>display.includes(t)).length;
+    const addressNumber = (ql.match(/^\s*(\d+)/)||[])[1];
+    const sameNumber = addressNumber ? new RegExp('(^|\\s|,)'+addressNumber+'(\\s|,|$)').test(display) : false;
+    return {...x, _suggestScore:(hasMagic?40:0)+(x.source==='ArcGIS'?20:0)+(sameNumber?20:0)+exactTokens*2-index*0.001};
+  }).sort((a,b)=>b._suggestScore-a._suggestScore);
+  const seen = new Set(), out = [];
+  for (const x of scored) {
     const k = String(x.display || '').toLowerCase();
     if (!k || seen.has(k)) continue;
     seen.add(k);
-    out.push(x);
+    const clean = {...x}; delete clean._suggestScore;
+    out.push(clean);
     if (out.length >= capped) break;
   }
   return out;
 }
 
-async function resolve(q) {
+async function resolve(q, magicKey = '') {
   const query = String(q || '').trim();
   if (!query) throw Object.assign(new Error('Enter a location.'), { code: 'EMPTY_LOCATION' });
   const direct = [];
@@ -596,14 +610,24 @@ async function resolve(q) {
 
   if (!direct.length) {
     try {
-      const url = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?' + new URLSearchParams({
-        SingleLine: query, f: 'json', maxLocations: '8', outFields: 'Match_addr,Addr_type,City,Region,Postal', forStorage: 'false', countryCode: 'USA'
-      });
+      const params = {
+        SingleLine: query, f: 'json', maxLocations: '8',
+        outFields: 'Match_addr,Addr_type,City,Region,Postal', forStorage: 'false', countryCode: 'USA'
+      };
+      if (magicKey) params.magicKey = String(magicKey);
+      const url = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?' + new URLSearchParams(params);
       const data = await fetchJson(url, {}, 9000);
       for (const c of data?.candidates || []) {
         const loc = c.location || {}, a = c.attributes || {};
         const lat = num(loc.y), lon = num(loc.x);
-        if (Number.isFinite(lat) && Number.isFinite(lon)) direct.push({ lat, lon, display: String(c.address || a.Match_addr || query), precision: String(a.Addr_type || 'place'), score: num(c.score, 0) + scoreAddress(query, { display: c.address || a.Match_addr || query }) });
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          direct.push({
+            lat, lon,
+            display: String(c.address || a.Match_addr || query),
+            precision: String(a.Addr_type || 'place'),
+            score: num(c.score, 0) + scoreAddress(query, { display: c.address || a.Match_addr || query }) + (magicKey ? 500 : 0)
+          });
+        }
       }
     } catch {}
   }
@@ -720,7 +744,7 @@ async function handler(req, res) {
     if (mode === 'resolve') {
       const q = String(req.query.q || '').trim().slice(0, 240);
       if (q.length < 2) return res.status(400).json({ ok:false, code:'EMPTY_LOCATION', message:'Enter a location.' });
-      publicCache(res, 300); return res.status(200).json({ ok: true, version: VERSION, ...(await resolve(q)) });
+      const magicKey = String(req.query?.magicKey || '').trim().slice(0, 500); publicCache(res, 300); return res.status(200).json({ ok: true, version: VERSION, ...(await resolve(q, magicKey)) });
     }
 
     if (mode === 'reverse') {
@@ -755,8 +779,10 @@ async function handler(req, res) {
 
     return res.status(400).json({ ok: false, code: 'UNKNOWN_MODE', message: 'Unknown restaurant search mode.' });
   } catch (err) {
-    console.error('restaurant-search-v626', err);
-    return res.status(502).json({
+    console.error('restaurant-search-' + VERSION, err);
+    const code = String(err?.code || 'SERVICE');
+    const status = code === 'EMPTY_LOCATION' ? 400 : code === 'NOT_FOUND' ? 422 : code === 'BAD_COORDINATES' ? 400 : 503;
+    return res.status(status).json({
       ok: false,
       version: VERSION,
       code: String(err?.code || 'SERVICE'),
