@@ -32,3 +32,7 @@
 .history-list{margin-top:13px;border-top:1px solid #e3dbcf;padding-top:8px}.history-row{display:grid;grid-template-columns:48px minmax(0,1fr) 24px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #e8e1d7}.history-row img{width:48px;height:42px;border-radius:8px;object-fit:cover}.history-row b{font-family:Georgia,serif;font-size:.72rem;font-weight:500;color:#25372f}.history-row span{display:block;margin-top:2px;color:#7d8982;font-size:.42rem}.history-list-x{position:static;width:24px;height:24px;border-color:#ded6ca;background:#fff;color:#87564e}
 .detail-recipe{margin-top:10px;padding:12px;border:1px solid #e0d8cc;border-radius:12px;background:#fbf8f1}.detail-recipe-title{font-size:.50rem;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:#7b877f}.detail-recipe p{margin:6px 0 0;color:#4e5e56;font-size:.59rem;line-height:1.5}
 @media(max-width:390px){.history-day{min-height:61px}.history-event{height:35px}.history-event span{font-size:.35rem}.settings-row button{font-size:.45rem;padding:0 8px}}
+
+.nochoice-art{width:min(220px,58vw);margin:0 auto 5px}.nochoice-art svg{width:100%;height:auto;display:block}.empty.nochoice h2{font-size:1.65rem}.empty.nochoice p{max-width:310px}
+body{overscroll-behavior:none}.card{will-change:transform;-webkit-user-select:none}
+@media(max-width:390px){.empty.nochoice h2{font-size:1.48rem}}
