@@ -46,11 +46,11 @@
 
   let foodBase=[], foodManual=new Set(), foodQuickHidden=new Set(), foodInProgress=false;
   let foodHydrationDone=false;
-  let foodHydrationPromise=Promise.resolve(false);
+  let foodHydrationPromise=null;
   let restaurantBase=[], restaurantManual=new Set();
   let restaurantRoundInProgress=false;
   let restaurantHydrationDone=false;
-  let restaurantHydrationPromise=Promise.resolve(false);
+  let restaurantHydrationPromise=null;
   let pass=null;
   let calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);
   let legacyShowGame,legacyResetList,legacyRenderStage,legacyUndo,legacyCut,legacyHold,legacyShowRestaurant,legacyApplyRestaurant,legacyRenderRestaurant,legacyRestaurantCut,legacyRestaurantKeep,legacyRestaurantUndo,legacyRenderLibrary,legacyShowWinner;
@@ -255,13 +255,13 @@
     await hydratePrimaryStorage().catch(()=>false);
     $('startOverBtn')?.replaceChildren(document.createTextNode('Start fresh'));
     legacyShowGame=window.showGame;legacyResetList=window.resetList;legacyRenderStage=window.renderStage;legacyUndo=window.undoLast;legacyCut=window.cutCurrent;legacyHold=window.holdCurrent;legacyShowRestaurant=window.showRestaurantMode;legacyApplyRestaurant=window.applyRestaurantData;legacyRenderRestaurant=window.renderRestaurantStage;legacyRestaurantCut=window.restaurantCut;legacyRestaurantKeep=window.restaurantKeep;legacyRestaurantUndo=window.restaurantUndo;legacyRenderLibrary=window.renderLibrary;legacyShowWinner=window.showWinner;
-    window.showGame=()=>{if(!foodHydrationDone){foodHydrationPromise.then(()=>window.showGame());return;}return foodInProgress&&((activeItems||[]).length+(holdingItems||[]).length)>0?resumeFood():freshFood();};window.resetList=()=>{foodHydrationDone=true;return freshFood();};
+    window.showGame=()=>{if(!foodHydrationDone&&foodHydrationPromise){return foodHydrationPromise.then(()=>window.showGame());}return foodInProgress&&((activeItems||[]).length+(holdingItems||[]).length)>0?resumeFood():freshFood();};window.resetList=()=>{foodHydrationDone=true;return freshFood();};
     window.renderStage=function(){addFoodBase();legacyRenderStage.apply(this,arguments);renderFoodQuickCuts();if(pass?.mode==='food')renderPassStatus();};
     window.cutCurrent=function(card){if(pass?.mode==='food')return passAct('cut',card);const it=activeItems?.[currentIndex()];if(it)foodManual.add(foodKey(it));const r=legacyCut.apply(this,arguments);setTimeout(()=>{recomputeFoodManual();saveFoodRoundState();renderFoodQuickCuts();},220);return r;};
     window.holdCurrent=function(card){if(pass?.mode==='food')return passAct('hold',card);const r=legacyHold.apply(this,arguments);setTimeout(()=>saveFoodRoundState(),220);return r;};
     window.undoLast=function(){const r=legacyUndo.apply(this,arguments);recomputeFoodManual();saveFoodRoundState();renderFoodQuickCuts();return r;};
     window.showRestaurantMode=()=>{
-      if(!restaurantHydrationDone){restaurantHydrationPromise.then(()=>window.showRestaurantMode());return true;}
+      if(!restaurantHydrationDone&&restaurantHydrationPromise){return restaurantHydrationPromise.then(()=>window.showRestaurantMode());}
       const hasRound=restaurantRoundInProgress&&((activeRestaurants||[]).length+(holdingRestaurants||[]).length)>0;
       const r=legacyShowRestaurant.apply(this,arguments);setupRestaurantTools();renderRestaurantQuickCuts();
       if(hasRound){setRadiusUi?.();renderRestaurantStage();syncRestaurantTools();setStatus(`${activeRestaurants.length} restaurants left · continuing your round`,'live');}
