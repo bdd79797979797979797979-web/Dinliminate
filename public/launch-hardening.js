@@ -81,7 +81,7 @@
     if(finalistMode){host.innerHTML='';return;}
     const keys=['burgers','pizza','chicken','mexican','italian','pasta','potato','southern','healthy','soupstew','sandwiches','seafood','steak','bbq','breakfast'];
     host.innerHTML=keys.filter(k=>QUICK_CUT_RULES?.[k]).map(k=>{
-      const r=QUICK_CUT_RULES[k],n=activeItems.filter(x=>foodQuickMatch(x,k)).length || foodBase.filter(x=>foodQuickMatch(x,k)).length,h=foodQuickHidden.has(k);
+      const r=QUICK_CUT_RULES[k],h=foodQuickHidden.has(k),n=(h?foodBase:activeItems).filter(x=>foodQuickMatch(x,k)).length;
       return `<button type="button" class="quick-cut${h?' is-quick-hidden':''}" data-launch-quick="${html(k)}" ${(!n||pass)?'disabled':''} aria-pressed="${h}"><span class="quick-cut-copy"><strong>${html(r.label)}</strong><em>${h?'show':'hide'} · ${n}</em></span><span class="quick-cut-x" aria-hidden="true">${h?'↺':'×'}</span></button>`;
     }).join('');
     host.querySelectorAll('[data-launch-quick]').forEach(b=>{const photoKey=QUICK_CUT_RULES[b.dataset.launchQuick]?.photo;const photo=photoKey&&PHOTO_LIBRARY?.[photoKey];if(photo)b.style.setProperty('--quick-photo',`url("${photo.replace(/"/g,'&quot;')}")`);b.onclick=()=>toggleFoodQuick(b.dataset.launchQuick);});
@@ -148,7 +148,7 @@
     if(restaurantFinalistMode){host.innerHTML='';if(title)title.textContent='FINALISTS';return;}
     if(title)title.textContent='Quick Cuts';
     const list=Array.isArray(RESTAURANT_QUICK_CUTS)?RESTAURANT_QUICK_CUTS:[];
-    host.innerHTML=list.map(([label,k,photoKey])=>{const n=activeRestaurants.filter(x=>restQuickMatch(x,k)).length || restaurantBase.filter(x=>restQuickMatch(x,k)).length,h=restaurantQuickCuts.has(k),photo=PHOTO_LIBRARY?.[photoKey]||RESTAURANT_FALLBACK_PHOTO;return `<button type="button" class="quick-cut restaurant-quick-cut${h?' is-quick-hidden':''}" data-launch-rq="${html(k)}" ${(!n||pass)?'disabled':''} aria-pressed="${h}" style="--quick-photo:url('${html(photo)}')"><span class="quick-cut-copy"><strong>${html(label)}</strong><em>${h?'show':'hide'} · ${n}</em></span><span class="quick-cut-x" aria-hidden="true">${h?'↺':'×'}</span></button>`;}).join('');
+    host.innerHTML=list.map(([label,k,photoKey])=>{const h=restaurantQuickCuts.has(k),n=(h?restaurantBase:activeRestaurants).filter(x=>restQuickMatch(x,k)).length,photo=PHOTO_LIBRARY?.[photoKey]||RESTAURANT_FALLBACK_PHOTO;return `<button type="button" class="quick-cut restaurant-quick-cut${h?' is-quick-hidden':''}" data-launch-rq="${html(k)}" ${(!n||pass)?'disabled':''} aria-pressed="${h}" style="--quick-photo:url('${html(photo)}')"><span class="quick-cut-copy"><strong>${html(label)}</strong><em>${h?'show':'hide'} · ${n}</em></span><span class="quick-cut-x" aria-hidden="true">${h?'↺':'×'}</span></button>`;}).join('');
     host.querySelectorAll('[data-launch-rq]').forEach(b=>b.onclick=()=>toggleRestaurantQuick(b.dataset.launchRq));
   }
   function visibleRestaurants(){const held=new Set((holdingRestaurants||[]).map(restKey));return restaurantBase.filter(x=>!held.has(restKey(x))&&!restaurantManual.has(restKey(x))&&!Array.from(restaurantQuickCuts||[]).some(k=>restQuickMatch(x,k)));}
