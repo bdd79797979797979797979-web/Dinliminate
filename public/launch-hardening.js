@@ -1,7 +1,7 @@
 /* Dinliminate P633 — launch interaction layer. */
 (function(){
   'use strict';
-  const VERSION='p704';
+  const VERSION='p705';
   const ROUND_SCHEMA=2;
   const $=id=>document.getElementById(id);
   const html=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -273,7 +273,7 @@
     window.restaurantCut=function(card){if(pass?.mode==='restaurant')return passAct('cut',card);const it=filterRestaurants()[0];if(it)restaurantManual.add(restKey(it));const r=legacyRestaurantCut.apply(this,arguments);setTimeout(()=>{recomputeRestaurantManual();restaurantRoundInProgress=true;saveRestaurantRoundState();renderRestaurantQuickCuts();},250);return r;};
     window.restaurantKeep=function(card){if(pass?.mode==='restaurant')return passAct('hold',card);const r=legacyRestaurantKeep.apply(this,arguments);setTimeout(()=>{restaurantRoundInProgress=true;saveRestaurantRoundState();},250);return r;};window.restaurantUndo=function(){const r=legacyRestaurantUndo.apply(this,arguments);recomputeRestaurantManual();restaurantRoundInProgress=true;saveRestaurantRoundState();renderRestaurantQuickCuts();return r;};
     window.showWinner=function(){foodInProgress=false;safeWrite(FOOD_ROUND_KEY,'');idbDelete('foodRound');return legacyShowWinner.apply(this,arguments);};window.renderLibrary=renderLibraryLaunch;
-    const foodBottom=$('gamePanel')?.querySelector('.game-bottom');if(foodBottom&&!$('passAroundBtn')){const b=document.createElement('button');b.id='passAroundBtn';b.type='button';b.className='text-btn food-secondary-action pass-food-btn';b.textContent='Pass Around';b.setAttribute('aria-label','Pass Around with other people');b.onclick=()=>openPass('food');foodBottom.appendChild(b);}
+    const foodBottom=$('gamePanel')?.querySelector('.game-bottom');if(foodBottom&&!$('passAroundBtn')){const b=document.createElement('button');b.id='passAroundBtn';b.type='button';b.className='text-btn food-secondary-action pass-food-btn';b.textContent='Pass Around';b.setAttribute('aria-label','Pass Around with other people');b.onclick=()=>openPass('food');const add=$('addDuringBtn');if(add&&add.parentElement===foodBottom)foodBottom.insertBefore(b,add);else foodBottom.appendChild(b);}
     $('restaurantPassAroundWrap')?.remove();
     document.querySelectorAll('[data-library-tab]').forEach(b=>b.addEventListener('click',()=>{libraryTab=b.dataset.libraryTab;renderLibraryLaunch();}));$('historyMenuBtn')?.addEventListener('click',()=>setTimeout(renderLibraryLaunch,0));
     // Disable the legacy website-metadata image hydrator so it cannot substitute another restaurant's photo.
