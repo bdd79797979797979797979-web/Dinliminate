@@ -5616,7 +5616,7 @@ window.__dinliminateReleaseMigration=(async()=>{
       <div class="restaurant-radius-inline" aria-label="Restaurant search radius">
         <button class="restaurant-radius-display" id="restaurantRadiusDisplay" type="button" aria-label="Restaurant search radius" aria-haspopup="listbox" aria-controls="restaurantRadiusFilter"><span id="restaurantRadiusDisplayText">25 mi</span><span aria-hidden="true" class="restaurant-radius-chevron">⌄</span></button>
         <select id="restaurantRadiusFilter" aria-label="Restaurant search radius">
-          <option value="1">1 mi</option><option value="3">3 mi</option><option value="5">5 mi</option><option value="10">10 mi</option><option value="15">15 mi</option><option value="25">25 mi</option><option value="50">50 mi</option>
+          <option value="1">1 mi</option><option value="3">3 mi</option><option value="5">5 mi</option><option value="10">10 mi</option><option value="15">15 mi</option><option value="25">25 mi</option><option value="50">50 mi</option><option value="75">75 mi</option><option value="100">100 mi</option>
         </select>
       </div>
       <button class="restaurant-location-btn" id="restaurantUseLocationBtn" type="button" aria-label="Use my location">Locate</button>
@@ -6106,7 +6106,7 @@ const RESTAURANT_QUICK_CUTS = [
   ['Pizza','pizza','pizza'],['Mexican','mexican','tacos'],['Sandwiches','sandwich','philly'],['Breakfast','breakfast','baconEggs'],
   ['BBQ','bbq','ribs'],['Southern','southern','buttermilk'],['American','american','steakPotato'],['Seafood','seafood','salmon'],['Italian','italian','pastaAlfredo'],
   ['Chinese','chinese','friedRice'],['Japanese','japanese','sushi'],['Thai','thai','stirFry'],['Indian','indian','stirFry'],
-  ['Mediterranean','mediterranean','gyro'],['Steak','steak','steakPotato'],['Coffee & Cafe','coffee','eggs'],['Desserts','dessert','parfait']
+  ['Mediterranean','mediterranean','gyro'],['Potato','potato','loadedPotato'],['Healthy / Salad','healthy','salad'],['Soup / Stew','soupstew','chickenNoodleSoup'],['Steak','steak','steakPotato'],['Coffee & Cafe','coffee','eggs'],['Desserts','dessert','parfait']
 ];
 const RESTAURANT_QUICK_CUT_PHOTOS = Object.fromEntries(RESTAURANT_QUICK_CUTS.map(x=>[x[1],x[2]]));
 let currentWinnerMode = 'food';
@@ -6118,9 +6118,9 @@ let foodPreferences = readFoodPreferences();
 let motionTiltEnabled = safeRead('dinliminateMotionTilt','false') === 'true';
 let motionTiltActive = false;
 let motionBaseline = { beta: null, gamma: null };
-const DINLIMINATE_VERSION = 'p643';
+const DINLIMINATE_VERSION = 'p700';
 try{ localStorage.removeItem('dinliminateRestaurantPhotoCache'); }catch{}
-const RESTAURANT_MAX_MILES = 50; // Launch cap: keeps provider fan-out and search latency bounded.
+const RESTAURANT_MAX_MILES = 100; // Final launch cap; provider search is tiled for wider areas.
 const RESTAURANT_FALLBACK_PHOTO = 'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=1200';
 const FOOD_FALLBACK_PHOTO = 'https://images.pexels.com/photos/17477762/pexels-photo-17477762.jpeg?auto=compress&cs=tinysrgb&w=1400';
 const HUNGRY_FALLBACK_PHOTO = 'https://images.pexels.com/photos/3688/food-salad-healthy-lunch.jpg?auto=compress&cs=tinysrgb&w=1400';
@@ -6267,7 +6267,7 @@ function restaurantPhotoUrl(item){
       }
     }
   }
-  return RESTAURANT_FALLBACK_PHOTO;
+  return '';
 }
 function restaurantPhotoIsReal(item){
   return !!restaurantPhotoUrl(item);
@@ -7294,6 +7294,9 @@ function restaurantQuickCutMatches(item,key){
     breakfast:[/\bbreakfast\b/,/\bbrunch\b/],
     steak:[/\bsteak\b/,/\bsteakhouse\b/],
     wings:[/\bwings?\b/],
+    potato:[/\bpotato(?:es)?\b/,/\bfries\b/,/\btater tots?\b/],
+    healthy:[/\bhealthy\b/,/\bsalad\b/,/\bgrain bowl\b/,/\bgreen bowl\b/],
+    soupstew:[/\bsoup\b/,/\bstew\b/,/\bchowder\b/,/\bchili\b/],
     coffee:[/\bcoffee\b/,/\bcaf(?:e|é)\b/],
     dessert:[/\bdesserts?\b/,/\bbakery\b/,/\bice\s+cream\b/]
   };
@@ -8023,7 +8026,7 @@ body.restaurant-mode .restaurant-location-row .restaurant-address-suggestions{le
   const V='p643', $=id=>document.getElementById(id), text=v=>String(v??'').trim();
   const field=()=>$('restaurantLocationInput'), box=()=>$('restaurantAddressSuggestions');
   let suggestTimer=0,suggestSeq=0,requestSeq=0,locationSeq=0,selected=null,abortCtl=null;
-  const isTest=!!window.__DIN_TEST__;
+  const isTest=!!window.__DIN_TEST__;\n  const FINAL_RADIUS=()=>Math.min(typeof RESTAURANT_MAX_MILES==='number'?RESTAURANT_MAX_MILES:100,Math.max(1,Number(restaurantRadiusMiles)||10));
   const endpoint=params=>isTest?'https://test.invalid/api/restaurant-search?'+new URLSearchParams(params):new URL('/api/restaurant-search?'+new URLSearchParams(params),location.origin).toString();
   const clearSuggestions=()=>{const b=box();if(b){b.innerHTML='';b.classList.add('hidden');}field()?.setAttribute('aria-expanded','false');};
   const setStatus=(msg,kind='live')=>{try{setRestaurantLocationStatus(msg,kind);}catch{}const e=$('restaurantLocationLabel');if(e){e.classList.toggle('warn',kind==='warn');e.classList.toggle('live',kind==='live');}};
@@ -8042,7 +8045,7 @@ body.restaurant-mode .restaurant-location-row .restaurant-address-suggestions{le
     b.classList.remove('hidden');el.setAttribute('aria-expanded','true');
     b.querySelectorAll('[data-v4-sug]').forEach(btn=>{
       let picked=false;
-      const choose=async e=>{if(picked)return;picked=true;e?.preventDefault();e?.stopPropagation();const row=rows[Number(btn.dataset.v4Sug)];if(!row)return;clearSuggestions();const q=text(row.query||row.display);el.value=q;try{let p;if(Number.isFinite(Number(row.lat))&&Number.isFinite(Number(row.lon)))p={lat:Number(row.lat),lon:Number(row.lon),display:text(row.display),precision:text(row.precision||'place')};else p=await resolve(q);commitArea(p,q);await searchAt(p,p.display||q);}catch(err){setStatus(text(err?.message)||'That address could not be used.','warn');}};
+      const choose=async e=>{if(picked)return;picked=true;e?.preventDefault();e?.stopPropagation();const row=rows[Number(btn.dataset.v4Sug)];if(!row)return;clearSuggestions();const q=text(row.query||row.display);el.value=q;try{let p;if(Number.isFinite(Number(row.lat))&&Number.isFinite(Number(row.lon)))p={lat:Number(row.lat),lon:Number(row.lon),display:text(row.display),precision:text(row.precision||'place')};else p=await resolve(q,row.magicKey);commitArea(p,q);await searchAt(p,p.display||q);}catch(err){setStatus(text(err?.message)||'That address could not be used.','warn');}};
       btn.addEventListener('pointerdown',choose,{passive:false});btn.addEventListener('click',choose);
     });
   };
@@ -8052,8 +8055,8 @@ body.restaurant-mode .restaurant-location-row .restaurant-address-suggestions{le
   }
   const schedule=()=>{clearTimeout(suggestTimer);const q=text(field()?.value);if(q.length<2){clearSuggestions();return;}suggestTimer=setTimeout(()=>suggest(q),180);};
   const commitArea=(p,q)=>{const lat=Number(p?.lat),lon=Number(p?.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error('Location coordinates unavailable.');restaurantLocationMode='area';persistRestaurantLocationMode?.();userCoords=null;userLocationAccuracyMeters=null;restaurantAreaCoords={lat,lon,display:text(p.display||q),query:text(q||p.display),searchLocation:text(p.display||q)};userCity=restaurantAreaCoords.display;restaurantLocationResolvedAt=Date.now();safeWrite('dinliminateRestaurantArea',restaurantAreaCoords.query);try{sessionStorage.setItem('dinliminateRestaurantAreaCoords',JSON.stringify(restaurantAreaCoords));}catch{}if(field())field().value=restaurantAreaCoords.query;};
-  async function resolve(q){const d=await req({mode:'resolve',q:text(q)},16000);const l=d?.location||{};const lat=Number(l.lat),lon=Number(l.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error('That address did not return usable coordinates.');return {lat,lon,display:text(d.display||q),precision:text(d.precision||'address')};}
-  async function searchAt(p,label){const lat=Number(p?.lat),lon=Number(p?.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error('Search coordinates are invalid.');const seq=++requestSeq;try{setRestaurantLoading?.(true,'find');setStatus(`Finding restaurants near ${text(label||'your location')}…`,'live');const d=await req({mode:'search',lat,lon,radius:Math.min(50,Math.max(1,Number(restaurantRadiusMiles)||10)),limit:1000},55000);if(seq!==requestSeq)return false;const rows=Array.isArray(d.results)?d.results:[];if(!rows.length)throw Object.assign(new Error('No restaurants were found in that area.'),{code:'NO_RESULTS'});applyRestaurantData?.({businesses:rows},text(label||'Selected location'));renderRestaurantQuickCuts?.();renderRestaurantStage?.();const ff=Number(d.fastFoodCount)||rows.filter(x=>x?.fastFood===true).length;setStatus(`${rows.length} restaurants · ${ff} fast food · ${Number(d.radiusMiles)||Number(restaurantRadiusMiles)||10} mi`,'live');return true;}finally{try{setRestaurantLoading?.(false,'find');}catch{}}}
+  async function resolve(q,magicKey=''){const d=await req({mode:'resolve',q:text(q),magicKey:text(magicKey)},10000);const l=d?.location||{};const lat=Number(l.lat),lon=Number(l.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error('That address did not return usable coordinates.');return {lat,lon,display:text(d.display||q),precision:text(d.precision||'address')};}
+  async function searchAt(p,label){const lat=Number(p?.lat),lon=Number(p?.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error('Search coordinates are invalid.');const seq=++requestSeq;try{setRestaurantLoading?.(true,'find');setStatus(`Finding restaurants near ${text(label||'your location')}…`,'live');const d=await req({mode:'search',lat,lon,radius:FINAL_RADIUS(),limit:500},15000);if(seq!==requestSeq)return false;const rows=Array.isArray(d.results)?d.results:[];if(!rows.length)throw Object.assign(new Error('No restaurants were found in that area.'),{code:'NO_RESULTS'});applyRestaurantData?.({businesses:rows},text(label||'Selected location'));renderRestaurantQuickCuts?.();renderRestaurantStage?.();const ff=Number(d.fastFoodCount)||rows.filter(x=>x?.fastFood===true).length;setStatus(`${rows.length} restaurants · ${ff} fast food · ${Number(d.radiusMiles)||Number(restaurantRadiusMiles)||10} mi`,'live');return true;}finally{try{setRestaurantLoading?.(false,'find');}catch{}}}
   async function find(qOverride){showRestaurantMode?.();const el=field(),q=text(qOverride??el?.value);clearSuggestions();selected=null;if(!q){setStatus('Enter a street address, city, or ZIP, then tap Find.','warn');return false;}try{const p=await resolve(q);selected=p;commitArea(p,q);return await searchAt(p,p.display||q);}catch(e){setStatus(text(e?.message)||'That location could not be found.','warn');try{showError?.(text(e?.message)||'That location could not be found.');}catch{}return false;}}
   async function locate(){if(locationSeq)return false;const seq=++locationSeq;clearSuggestions();setStatus('Getting your location…','live');try{if(!isTest && !window.isSecureContext)throw new Error('Location requires HTTPS. Enter an address or city instead.');if(!navigator.geolocation)throw new Error('Location services are unavailable on this device.');const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:12000,maximumAge:30000}));if(seq!==locationSeq)return false;const c=pos.coords||{};const lat=Number(c.latitude),lon=Number(c.longitude);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error('Your device returned invalid coordinates.');restaurantLocationMode='device';persistRestaurantLocationMode?.();userCoords={latitude:lat,longitude:lon};userLocationAccuracyMeters=Number(c.accuracy)||null;restaurantAreaCoords=null;userCity='Your location';safeWrite('dinliminateRestaurantArea','');try{sessionStorage.removeItem('dinliminateRestaurantAreaCoords');}catch{}let label='Your location';try{const d=await req({mode:'reverse',lat,lon},10000);label=text(d.display||d.city||label);}catch{}userCity=label;return await searchAt({lat,lon},label);}catch(e){setStatus(text(e?.message)||'Could not get your location.','warn');return false;}finally{if(seq===locationSeq)locationSeq=0;}}
   document.addEventListener('click',e=>{const t=e.target?.closest?.('#restaurantUseLocationBtn,#restaurantLoadBtn,#restaurantEmptyFind,#restaurantEmptyLocation');if(!t)return;if(t.id==='restaurantUseLocationBtn'||t.id==='restaurantEmptyLocation')void locate();else void find();},true);
@@ -8061,7 +8064,7 @@ body.restaurant-mode .restaurant-location-row .restaurant-address-suggestions{le
   const el=field();if(el){el.addEventListener('input',schedule);el.addEventListener('focus',()=>{const q=text(el.value);if(q.length>=2)schedule();});el.addEventListener('blur',()=>setTimeout(clearSuggestions,500));}
   window.DinliminateRestaurantSearchV4={version:V,find,locate,resolve,suggest,diagnose:()=>({version:V,mode:restaurantLocationMode,area:restaurantAreaCoords,device:userCoords,radius:restaurantRadiusMiles})};
   window.DinliminateRestaurantSearchV3=window.DinliminateRestaurantSearchV4;
-  window.loadRestaurantsForArea=find;window.loadRestaurantsForCurrentLocation=locate;window.locateRestaurants=locate;window.setRestaurantRadiusV3=(m)=>{restaurantRadiusMiles=Math.min(50,Math.max(1,Number(m)||10));safeWrite('dinliminateRestaurantRadius',String(restaurantRadiusMiles));return true;};
+  window.loadRestaurantsForArea=find;window.loadRestaurantsForCurrentLocation=locate;window.locateRestaurants=locate;window.setRestaurantRadiusV3=(m)=>{restaurantRadiusMiles=Math.min(RESTAURANT_MAX_MILES,Math.max(1,Number(m)||10));safeWrite('dinliminateRestaurantRadius',String(restaurantRadiusMiles));return true;};
 })();
 </script>\n</body>
 <!-- Dinliminate p623: authoritative restaurant location controller. -->
