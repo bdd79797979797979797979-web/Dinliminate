@@ -1,7 +1,7 @@
 /* Dinliminate P633 — launch interaction layer. */
 (function(){
   'use strict';
-  const VERSION='p702';
+  const VERSION='p703';
   const ROUND_SCHEMA=2;
   const $=id=>document.getElementById(id);
   const html=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -250,62 +250,6 @@
   }
   window.DinliminateBackToStart=backToStartFresh;
 
-  function authoritativeSwipeFactory(mode){
-    const restaurant=mode==='restaurant';
-    return function(card){
-      if(!card || card.__dinSwipeBound)return;
-      card.__dinSwipeBound=true;
-      let id=null,startX=0,startY=0,lastX=0,moved=false,dragging=false;
-      const blocked=e=>!!e?.target?.closest?.(restaurant?'button,a,[data-rest-action]':'button,a,[data-card-action]');
-      const reset=()=>{card.classList.remove('dragging','show-cut','show-hold');card.style.removeProperty('transform');id=null;dragging=false;};
-      const begin=(pointerId,x,y,e)=>{
-        if(restaurant?restaurantTransitioning:transitioning) return false;
-        if(blocked(e)) return false;
-        id=pointerId;startX=lastX=x;startY=y;moved=false;dragging=true;
-        card.classList.add('dragging');
-        try{card.setPointerCapture(pointerId);}catch{}
-        return true;
-      };
-      const move=(pointerId,x,y,e)=>{
-        if(!dragging||id!==pointerId)return;
-        const dx=x-startX,dy=y-startY;lastX=x;
-        if(Math.abs(dy)>Math.abs(dx)*1.2 && Math.abs(dy)>14){reset();return;}
-        if(Math.abs(dx)>8)moved=true;
-        if(e?.cancelable)e.preventDefault();
-        const width=Math.max(280,card.getBoundingClientRect().width||350),max=Math.max(220,width*.84),px=Math.max(-max,Math.min(max,dx));
-        card.style.transform=`translate(${px}px,${Math.max(-12,Math.min(12,dy*.07))}px) rotate(${px*.045}deg)`;
-        card.classList.toggle('show-cut',px<-48);card.classList.toggle('show-hold',px>48);
-      };
-      const end=(pointerId,x=lastX,cancelled=false)=>{
-        if(!dragging||id!==pointerId)return;
-        const dx=x-startX,act=!cancelled&&moved&&Math.abs(dx)>=54;
-        reset();
-        if(!act)return;
-        if(restaurant){if(dx<0)window.restaurantCut(card);else window.restaurantKeep(card);}else{if(dx<0)window.cutCurrent(card);else window.holdCurrent(card);}
-      };
-      card.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;begin(e.pointerId,e.clientX,e.clientY,e);},{passive:false});
-      card.addEventListener('pointermove',e=>move(e.pointerId,e.clientX,e.clientY,e),{passive:false});
-      card.addEventListener('pointerup',e=>{end(e.pointerId,e.clientX,false);try{card.releasePointerCapture(e.pointerId);}catch{}},{passive:false});
-      card.addEventListener('pointercancel',e=>end(e.pointerId,e.clientX,true),{passive:false});
-      card.addEventListener('lostpointercapture',e=>{if(id===e.pointerId)end(e.pointerId,lastX,false);},{passive:false});
-    };
-  }
-  function stripAndBind(id,handler){
-    const old=$(id);if(!old)return null;
-    const fresh=old.cloneNode(true);old.replaceWith(fresh);fresh.addEventListener('click',handler,{passive:true});return fresh;
-  }
-  function installAuthoritativeInteractions(){
-    window.bindSwipe=authoritativeSwipeFactory('food');
-    window.bindRestaurantSwipe=authoritativeSwipeFactory('restaurant');
-    stripAndBind('cutBtn',()=>window.cutCurrent($('stage')?.querySelector('.active')));
-    stripAndBind('holdBtn',()=>window.holdCurrent($('stage')?.querySelector('.active')));
-    stripAndBind('backBtn',()=>window.undoLast());
-    stripAndBind('restaurantCutBtn',()=>window.restaurantCut($('restaurantStage')?.querySelector('.active')));
-    stripAndBind('restaurantKeepBtn',()=>window.restaurantKeep($('restaurantStage')?.querySelector('.active')));
-    stripAndBind('restaurantBackAction',()=>window.restaurantUndo());
-    stripAndBind('restaurantHideBtn',()=>window.restaurantHide());
-  }
-
   async function install(){
     safeWrite('dinliminateLaunchVersion',VERSION);
     await hydratePrimaryStorage().catch(()=>false);
@@ -333,7 +277,7 @@
     $('restaurantPassAroundWrap')?.remove();
     document.querySelectorAll('[data-library-tab]').forEach(b=>b.addEventListener('click',()=>{libraryTab=b.dataset.libraryTab;renderLibraryLaunch();}));$('historyMenuBtn')?.addEventListener('click',()=>setTimeout(renderLibraryLaunch,0));
     // Disable the legacy website-metadata image hydrator so it cannot substitute another restaurant's photo.
-    setupRestaurantTools();renderFoodQuickCuts();renderRestaurantQuickCuts();installAuthoritativeInteractions();
+    setupRestaurantTools();renderFoodQuickCuts();renderRestaurantQuickCuts();
     foodHydrationPromise=hydrateFoodRound().then(restored=>{foodHydrationDone=true;if(restored && document.body.classList.contains('game-mode')){foodShowUI(`${activeItems.length} options left · continuing your round`);}return restored;}).catch(()=>{foodHydrationDone=true;return false;});
     restaurantHydrationPromise=hydrateRestaurantRound().then(restored=>{restaurantHydrationDone=true;return restored;}).catch(()=>{restaurantHydrationDone=true;return false;});
   }
