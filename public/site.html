@@ -5502,7 +5502,7 @@ window.__dinliminateReleaseMigration=(async()=>{
   } catch(e) { console.warn('Dinliminate cache cleanup skipped',e); }
 })();
 </script>
-<link rel="stylesheet" href="./launch-hardening.css?v=p700"><script src="./launch-hardening.js?v=p700" defer></script><style id="dinliminate-p641-controls">
+<link rel="stylesheet" href="./launch-hardening.css?v=p701"><script src="./launch-hardening.js?v=p701" defer></script><style id="dinliminate-p641-controls">
   .game-bottom{display:flex!important;gap:7px!important;flex-wrap:wrap!important;justify-content:center!important;margin-top:8px!important}
   .food-secondary-action{min-height:34px!important;padding:0 12px!important;font-size:.55rem!important;font-weight:850!important}
   .pass-around-btn,.restaurant-pass-btn,#passAroundBtn,#restaurantPassAroundBtn{border-color:rgba(103,196,155,.32)!important;color:#a5ebcc!important;background:rgba(103,196,155,.09)!important}
@@ -6118,7 +6118,7 @@ let foodPreferences = readFoodPreferences();
 let motionTiltEnabled = safeRead('dinliminateMotionTilt','false') === 'true';
 let motionTiltActive = false;
 let motionBaseline = { beta: null, gamma: null };
-const DINLIMINATE_VERSION = 'p700';
+const DINLIMINATE_VERSION = 'p701';
 try{ localStorage.removeItem('dinliminateRestaurantPhotoCache'); }catch{}
 const RESTAURANT_MAX_MILES = 100; // Final launch cap; provider search is tiled for wider areas.
 const RESTAURANT_FALLBACK_PHOTO = 'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=1200';
@@ -6875,84 +6875,97 @@ function undoLast() {
 function bindSwipe(card) {
   if (!card || card.__dinSwipeBound) return;
   card.__dinSwipeBound = true;
-  let touchActive = false;
-  let suppressPointerUntil = 0;
+  let activePointerId = null;
+  let startX = 0, startY = 0, lastX = 0, moved = false, dragging = false;
+
   const reset = () => {
     card.classList.remove('dragging','show-cut','show-hold');
     card.style.removeProperty('transform');
+    dragging = false;
+    activePointerId = null;
   };
-  const begin = (id, x, y, source='pointer') => {
-    if (transitioning) return false;
-    if (source === 'pointer' && Date.now() < suppressPointerUntil) return false;
-    pointer = {id,startX:x,startY:y,lastX:x,lastY:y,card,moved:false,cancelled:false,source};
+
+  const isActionTarget = e => !!e?.target?.closest?.('button,a,[data-card-action]');
+
+  const start = (id, x, y) => {
+    if (transitioning || !activeItems.length || isActionTarget({target:document.elementFromPoint(x,y)})) return false;
+    activePointerId = id;
+    startX = lastX = x;
+    startY = y;
+    moved = false;
+    dragging = true;
     card.classList.add('dragging');
     return true;
   };
-  const move = (id, x, y, e) => {
-    if (!pointer || pointer.id !== id) return;
-    if (e?.cancelable) e.preventDefault();
-    pointer.lastX = x; pointer.lastY = y;
-    const dx = x - pointer.startX, dy = y - pointer.startY;
-    if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * .7) pointer.moved = true;
-    const cardWidth = Math.max(280, card.getBoundingClientRect().width || 350);
-    const maxDrag = Math.max(220, cardWidth * 0.78);
-    const px = Math.max(-maxDrag, Math.min(maxDrag, dx));
-    card.style.transform = `translate(${px}px, ${dy * .10}px) rotate(${px * .055}deg)`;
-    card.classList.toggle('show-cut', px < -55);
-    card.classList.toggle('show-hold', px > 55);
-  };
-  const finish = (id, cancelled=false, x=null) => {
-    if (!pointer || pointer.id !== id) return;
-    const p = pointer;
-    const endX = Number.isFinite(x) ? x : p.lastX;
-    pointer = null;
-    reset();
-    if (cancelled || p.cancelled) return;
-    const dx = endX - p.startX;
-    const threshold = Math.max(52, Math.min(76, (card.getBoundingClientRect().width || 350) * .17));
-    if (Math.abs(dx) >= threshold) {
-      if (dx < 0) cutCurrent(card); else holdCurrent(card);
-    } else if (!p.moved && finalistMode) {
-      toast('Use Details or swipe to choose.');
-    }
-  };
-  card.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (e.target.closest('button,a,[data-card-action]')) return;
-    begin(e.pointerId, e.clientX, e.clientY, 'pointer');
-  }, {passive:false});
-  card.addEventListener('pointermove', e => {
-    if (!pointer || pointer.source !== 'pointer' || pointer.id !== e.pointerId) return;
-    move(e.pointerId, e.clientX, e.clientY, e);
-  }, {passive:false});
-  card.addEventListener('pointerup', e => finish(e.pointerId, false, e.clientX));
-  card.addEventListener('pointercancel', e => finish(e.pointerId, true, e.clientX));
-  card.addEventListener('lostpointercapture', e => finish(e.pointerId, false, pointer?.lastX));
 
-  card.addEventListener('touchstart', e => {
-    if (transitioning || touchActive) return;
-    if (e.target.closest('button,a,[data-card-action]')) return;
-    const t = e.changedTouches?.[0]; if (!t) return;
-    touchActive = true;
-    suppressPointerUntil = Date.now() + 900;
-    begin(`touch-${t.identifier}`, t.clientX, t.clientY, 'touch');
-  }, {passive:false});
-  card.addEventListener('touchmove', e => {
-    if (!touchActive || !pointer || pointer.source !== 'touch') return;
-    const t = [...e.changedTouches].find(x => `touch-${x.identifier}` === pointer.id); if (!t) return;
-    move(pointer.id, t.clientX, t.clientY, e);
-  }, {passive:false});
-  card.addEventListener('touchend', e => {
-    if (!touchActive || !pointer || pointer.source !== 'touch') return;
-    const t = [...e.changedTouches].find(x => `touch-${x.identifier}` === pointer.id);
-    finish(pointer.id, false, t?.clientX ?? pointer.lastX);
-    touchActive = false;
-  }, {passive:false});
-  card.addEventListener('touchcancel', e => {
-    if (!touchActive || !pointer || pointer.source !== 'touch') return;
-    finish(pointer.id, true, pointer.lastX);
-    touchActive = false;
-  }, {passive:false});
+  const move = (id, x, y, e) => {
+    if (!dragging || activePointerId !== id) return;
+    const dx = x - startX, dy = y - startY;
+    lastX = x;
+    if (!moved && Math.abs(dx) < 8) return;
+    if (Math.abs(dy) > Math.abs(dx) * 1.15 && Math.abs(dy) > 12) {
+      reset();
+      return;
+    }
+    moved = Math.abs(dx) > 8;
+    if (e?.cancelable) e.preventDefault();
+    const width = Math.max(280, card.getBoundingClientRect().width || 350);
+    const maxDrag = Math.max(220, width * .82);
+    const px = Math.max(-maxDrag, Math.min(maxDrag, dx));
+    card.style.transform = `translate(${px}px,${Math.max(-10,Math.min(10,dy*.08))}px) rotate(${px*.05}deg)`;
+    card.classList.toggle('show-cut', px < -48);
+    card.classList.toggle('show-hold', px > 48);
+  };
+
+  const end = (id, x=lastX, cancelled=false) => {
+    if (!dragging || activePointerId !== id) return;
+    const dx = x - startX;
+    const shouldAct = !cancelled && moved && Math.abs(dx) >= 54;
+    reset();
+    if (!shouldAct || transitioning) return;
+    if (dx < 0) cutCurrent(card); else holdCurrent(card);
+  };
+
+  if (window.PointerEvent) {
+    card.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (!start(e.pointerId, e.clientX, e.clientY)) return;
+      try { card.setPointerCapture(e.pointerId); } catch {}
+    }, {passive:false});
+    card.addEventListener('pointermove', e => move(e.pointerId, e.clientX, e.clientY, e), {passive:false});
+    card.addEventListener('pointerup', e => {
+      end(e.pointerId, e.clientX, false);
+      try { card.releasePointerCapture(e.pointerId); } catch {}
+    }, {passive:false});
+    card.addEventListener('pointercancel', e => end(e.pointerId, e.clientX, true), {passive:false});
+    card.addEventListener('lostpointercapture', e => {
+      if (activePointerId === e.pointerId) end(e.pointerId, lastX, false);
+    }, {passive:false});
+  } else {
+    let touchId = null;
+    card.addEventListener('touchstart', e => {
+      if (transitioning || touchId !== null || isActionTarget(e)) return;
+      const t = e.changedTouches?.[0];
+      if (!t) return;
+      if (start(`touch-${t.identifier}`, t.clientX, t.clientY)) touchId = t.identifier;
+    }, {passive:false});
+    card.addEventListener('touchmove', e => {
+      if (touchId === null) return;
+      const t = [...e.changedTouches].find(x => x.identifier === touchId);
+      if (t) move(`touch-${touchId}`, t.clientX, t.clientY, e);
+    }, {passive:false});
+    card.addEventListener('touchend', e => {
+      if (touchId === null) return;
+      const t = [...e.changedTouches].find(x => x.identifier === touchId);
+      end(`touch-${touchId}`, t?.clientX ?? lastX, false);
+      touchId = null;
+    }, {passive:false});
+    card.addEventListener('touchcancel', e => {
+      if (touchId === null) return;
+      end(`touch-${touchId}`, lastX, true);
+      touchId = null;
+    }, {passive:false});
+  }
 }
 function currentIndex() {
   const items = searchQuery ? availableItems() : activeItems;
@@ -7606,10 +7619,7 @@ function renderRestaurantStage(){
       return;
     }
     $('restaurantStage').innerHTML=`<div class="restaurant-empty-v240"><div class="restaurant-empty-icon">⌖</div><strong>Ready to find dinner?</strong><p>Give Dinliminate a city or ZIP; we will do the browsing.</p><div class="restaurant-empty-actions"><button class="restaurant-empty-btn" id="restaurantEmptyFind" type="button">Find restaurants</button><button class="restaurant-empty-secondary" id="restaurantEmptyLocation" type="button">Use my location</button></div></div>`;
-    $('restaurantEmptyFind')?.addEventListener('click',()=>{
-      const area=$('restaurantLocationInput')?.value.trim();area?window.loadRestaurantsForArea?.(area):window.locateRestaurants?.();
-    });
-    $('restaurantEmptyLocation')?.addEventListener('click',()=>window.locateRestaurants?.());
+    // Address/location actions are owned by the final v4 controller below.
     syncRestaurantActionLabels();return;
   }
   const open=restaurantOpenStatus(first);const price=normalizePrice(first.priceLevel);const rating=Number(first.rating)||0;const website=safeExternalUrl(first.website);const distance=Number.isFinite(first.distanceMiles)?`${first.distanceMiles.toFixed(1)} mi`:'Distance unavailable';const photoSrc=restaurantPhotoUrl(first);const openLabel=open===true?'Open now':open===false?'Closed':'Open / unknown hours';const isSavedNow=isSaved(first);const menuItems=restaurantMenuItems(first);const menuBox=menuItems.length?`<div class="restaurant-menu-card" aria-label="Common menu items"><span>Common menu items</span><strong>${menuItems.map(x=>escapeHtml(x)).join(' · ')}</strong></div>`:'';
@@ -7622,54 +7632,78 @@ function currentRestaurant(){return filteredRestaurants()[0]||null;}
 function bindRestaurantSwipe(card){
   if(!card || card.__dinSwipeBound)return;
   card.__dinSwipeBound=true;
-  let touchActive=false, suppressPointerUntil=0;
-  const reset=()=>{card.classList.remove('dragging','show-cut','show-hold');card.style.removeProperty('transform');};
-  const begin=(id,x,y,source)=>{if(restaurantTransitioning||!currentRestaurant())return false;if(source==='pointer'&&Date.now()<suppressPointerUntil)return false;restaurantPointer={id,startX:x,startY:y,lastX:x,lastY:y,card,moved:false,cancelled:false,source};card.classList.add('dragging');return true;};
-  const move=(id,x,y,e)=>{if(!restaurantPointer||restaurantPointer.id!==id)return;if(e?.cancelable)e.preventDefault();restaurantPointer.lastX=x;restaurantPointer.lastY=y;const dx=x-restaurantPointer.startX,dy=y-restaurantPointer.startY;if(Math.abs(dx)>8&&Math.abs(dx)>Math.abs(dy)*.7)restaurantPointer.moved=true;const cardWidth=Math.max(280, card.getBoundingClientRect().width || 350); const maxDrag=Math.max(220,cardWidth*0.78); const px=Math.max(-maxDrag,Math.min(maxDrag,dx));card.style.transform=`translate(${px}px, ${dy*.10}px) rotate(${px*.055}deg)`;card.classList.toggle('show-cut',px<-55);card.classList.toggle('show-hold',px>55);};
-  const finish=(id,cancelled=false,x=null)=>{if(!restaurantPointer||restaurantPointer.id!==id)return;const p=restaurantPointer,endX=Number.isFinite(x)?x:p.lastX;restaurantPointer=null;reset();if(cancelled||p.cancelled)return;const dx=endX-p.startX,threshold=Math.max(52,Math.min(76,(card.getBoundingClientRect().width||350)*.17));if(Math.abs(dx)>=threshold){if(dx<0)restaurantCut(card);else restaurantKeep(card);}};
-  card.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;if(e.target.closest('button,a,[data-rest-action]'))return;begin(e.pointerId,e.clientX,e.clientY,'pointer');},{passive:false});
-  card.addEventListener('pointermove',e=>{if(!restaurantPointer||restaurantPointer.source!=='pointer'||e.pointerId!==restaurantPointer.id)return;move(e.pointerId,e.clientX,e.clientY,e);},{passive:false});
-  card.addEventListener('pointerup',e=>finish(e.pointerId,false,e.clientX));
-  card.addEventListener('pointercancel',e=>finish(e.pointerId,true,e.clientX));
-  card.addEventListener('lostpointercapture',e=>finish(e.pointerId,false,restaurantPointer?.lastX));
-  card.addEventListener('touchstart',e=>{if(restaurantTransitioning||touchActive||!currentRestaurant())return;if(e.target.closest('button,a,[data-rest-action]'))return;const t=e.changedTouches?.[0];if(!t)return;touchActive=true;suppressPointerUntil=Date.now()+900;begin(`touch-${t.identifier}`,t.clientX,t.clientY,'touch');},{passive:false});
-  card.addEventListener('touchmove',e=>{if(!touchActive||!restaurantPointer||restaurantPointer.source!=='touch')return;const t=[...e.changedTouches].find(x=>`touch-${x.identifier}`===restaurantPointer.id);if(!t)return;move(restaurantPointer.id,t.clientX,t.clientY,e);},{passive:false});
-  card.addEventListener('touchend',e=>{if(!touchActive||!restaurantPointer||restaurantPointer.source!=='touch')return;const t=[...e.changedTouches].find(x=>`touch-${x.identifier}`===restaurantPointer.id);finish(restaurantPointer.id,false,t?.clientX??restaurantPointer.lastX);touchActive=false;},{passive:false});
-  card.addEventListener('touchcancel',e=>{if(!touchActive||!restaurantPointer||restaurantPointer.source!=='touch')return;finish(restaurantPointer.id,true,restaurantPointer.lastX);touchActive=false;},{passive:false});
-}
-function syncRestaurantActionLabels(){
-  const hold=$('restaurantKeepBtn');
-  const chooseMode=restaurantFinalistMode;
-  if(hold){hold.innerHTML=chooseMode?'Choose <span>✓</span>':'Maybe <span>♥</span>';hold.setAttribute('aria-label',chooseMode?'Choose this restaurant':'Keep this restaurant as a maybe');hold.disabled=!currentRestaurant();}
-  const cut=$('restaurantCutBtn'); if(cut){cut.innerHTML='<span>×</span> Cut';cut.disabled=!currentRestaurant();}
-  const hide=$('restaurantHideBtn');if(hide)hide.disabled=!currentRestaurant();
-  const back=$('restaurantBackAction');if(back)back.disabled=restaurantUndoStack.length===0;
-}
-function restaurantLocationQualityText(){
-  if(!Number.isFinite(userLocationAccuracyMeters)) return '';
-  const m=userLocationAccuracyMeters;
-  if(m<=100) return `Location precise · ±${Math.round(m)} m`;
-  if(m<=500) return `Location approximate · ±${Math.round(m)} m`;
-  const mi=m/1609.344;
-  return `Location low accuracy · ±${mi<10?mi.toFixed(1):Math.round(mi)} mi`;
-}
-function showRestaurantMode(){
-  const openBtn=$('restaurantOpenUnknownBtn'); if(openBtn){openBtn.classList.toggle('active',!!restaurantFilters.openNow);openBtn.setAttribute('aria-pressed',String(!!restaurantFilters.openNow));}
+  let activePointerId=null,startX=0,startY=0,lastX=0,moved=false,dragging=false;
 
-  currentWinnerMode='restaurant';
-  document.title='Dinliminate — Find a Restaurant';
-  setNavActive('navRestaurants');
-  document.body.classList.remove('game-mode','finalist-mode');document.body.classList.add('restaurant-mode');
-  $('homePanel').classList.add('hidden');$('gamePanel').classList.add('hidden');$('winnerPanel').classList.add('hidden');$('restaurantPanel').classList.remove('hidden');
-  const savedArea=safeRead('dinliminateRestaurantArea','');
-  if($('restaurantLocationInput')&&!$('restaurantLocationInput').value&&restaurantLocationMode!=='device')$('restaurantLocationInput').value=userCity||savedArea;
-  if($('restaurantLocationLabel')){
-    const quality=restaurantLocationQualityText();
-    const base=restaurantLocationMode==='device' && userCoords ? 'Using your device location' : (userCity?`Near ${userCity}`:'Pick an area');
-    $('restaurantLocationLabel').textContent=restaurantLocationMode==='device' && userCoords ? `${base} · ${quality?quality.replace(/^Location /,''):'device location'} · cut until one is left` : `${base} · cut until one is left`;
+  const reset=()=>{
+    card.classList.remove('dragging','show-cut','show-hold');
+    card.style.removeProperty('transform');
+    dragging=false;
+    activePointerId=null;
+  };
+  const isActionTarget=e=>!!e?.target?.closest?.('button,a,[data-rest-action]');
+  const start=(id,x,y)=>{
+    if(restaurantTransitioning||!currentRestaurant()||isActionTarget({target:document.elementFromPoint(x,y)}))return false;
+    activePointerId=id;startX=lastX=x;startY=y;moved=false;dragging=true;card.classList.add('dragging');return true;
+  };
+  const move=(id,x,y,e)=>{
+    if(!dragging||activePointerId!==id)return;
+    const dx=x-startX,dy=y-startY;lastX=x;
+    if(!moved&&Math.abs(dx)<8)return;
+    if(Math.abs(dy)>Math.abs(dx)*1.15&&Math.abs(dy)>12){reset();return;}
+    moved=Math.abs(dx)>8;
+    if(e?.cancelable)e.preventDefault();
+    const width=Math.max(280,card.getBoundingClientRect().width||350);
+    const maxDrag=Math.max(220,width*.82);
+    const px=Math.max(-maxDrag,Math.min(maxDrag,dx));
+    card.style.transform=`translate(${px}px,${Math.max(-10,Math.min(10,dy*.08))}px) rotate(${px*.05}deg)`;
+    card.classList.toggle('show-cut',px<-48);
+    card.classList.toggle('show-hold',px>48);
+  };
+  const end=(id,x=lastX,cancelled=false)=>{
+    if(!dragging||activePointerId!==id)return;
+    const dx=x-startX,shouldAct=!cancelled&&moved&&Math.abs(dx)>=54;
+    reset();
+    if(!shouldAct||restaurantTransitioning)return;
+    if(dx<0)restaurantCut(card);else restaurantKeep(card);
+  };
+
+  if(window.PointerEvent){
+    card.addEventListener('pointerdown',e=>{
+      if(e.pointerType==='mouse'&&e.button!==0)return;
+      if(!start(e.pointerId,e.clientX,e.clientY))return;
+      try{card.setPointerCapture(e.pointerId);}catch{}
+    },{passive:false});
+    card.addEventListener('pointermove',e=>move(e.pointerId,e.clientX,e.clientY,e),{passive:false});
+    card.addEventListener('pointerup',e=>{
+      end(e.pointerId,e.clientX,false);
+      try{card.releasePointerCapture(e.pointerId);}catch{}
+    },{passive:false});
+    card.addEventListener('pointercancel',e=>end(e.pointerId,e.clientX,true),{passive:false});
+    card.addEventListener('lostpointercapture',e=>{
+      if(activePointerId===e.pointerId)end(e.pointerId,lastX,false);
+    },{passive:false});
+  }else{
+    let touchId=null;
+    card.addEventListener('touchstart',e=>{
+      if(restaurantTransitioning||touchId!==null||isActionTarget(e))return;
+      const t=e.changedTouches?.[0];if(!t)return;
+      if(start(`touch-${t.identifier}`,t.clientX,t.clientY))touchId=t.identifier;
+    },{passive:false});
+    card.addEventListener('touchmove',e=>{
+      if(touchId===null)return;
+      const t=[...e.changedTouches].find(x=>x.identifier===touchId);
+      if(t)move(`touch-${touchId}`,t.clientX,t.clientY,e);
+    },{passive:false});
+    card.addEventListener('touchend',e=>{
+      if(touchId===null)return;
+      const t=[...e.changedTouches].find(x=>x.identifier===touchId);
+      end(`touch-${touchId}`,t?.clientX??lastX,false);touchId=null;
+    },{passive:false});
+    card.addEventListener('touchcancel',e=>{
+      if(touchId===null)return;
+      end(`touch-${touchId}`,lastX,true);touchId=null;
+    },{passive:false});
   }
-  const actions=$('restaurantGestureActions'); actions?.classList.remove('disabled'); actions?.querySelectorAll('.gesture-btn').forEach(b=>b.disabled=false);
-  renderRestaurantQuickCuts();renderRestaurantStage();syncRestaurantActionLabels();
 }
 function restaurantCut(card=$('restaurantStage')?.querySelector('.active')){
   if(passAroundSession?.mode==='restaurant') { passAroundVote('cut',card,true); return; }
@@ -8060,7 +8094,7 @@ body.restaurant-mode .restaurant-location-row .restaurant-address-suggestions{le
 <script id="dinliminate-restaurant-search-v4">
 (function(){
   'use strict';
-  const V='p700', $=id=>document.getElementById(id), text=v=>String(v??'').trim();
+  const V='p701', $=id=>document.getElementById(id), text=v=>String(v??'').trim();
   const field=()=>$('restaurantLocationInput'), box=()=>$('restaurantAddressSuggestions');
   let suggestTimer=0,suggestSeq=0,requestSeq=0,locationSeq=0,selected=null,abortCtl=null;
   const isTest=!!window.__DIN_TEST__;
@@ -8104,7 +8138,45 @@ body.restaurant-mode .restaurant-location-row .restaurant-address-suggestions{le
   window.DinliminateRestaurantSearchV3=window.DinliminateRestaurantSearchV4;
   window.loadRestaurantsForArea=find;window.loadRestaurantsForCurrentLocation=locate;window.locateRestaurants=locate;window.setRestaurantRadiusV3=(m)=>{restaurantRadiusMiles=Math.min(RESTAURANT_MAX_MILES,Math.max(1,Number(m)||10));safeWrite('dinliminateRestaurantRadius',String(restaurantRadiusMiles));return true;};
 })();
-</script>\n</body>
+</script>\n
+<style id="dinliminate-p701-final-controls">
+@media(max-width:700px){
+  body.restaurant-mode .restaurant-location-row{grid-template-columns:minmax(0,1fr) 86px 70px 64px!important;gap:6px!important;align-items:center!important;}
+  body.restaurant-mode .restaurant-location-field{grid-column:1/-1!important;}
+  body.restaurant-mode .restaurant-location-field input{width:100%!important;min-width:0!important;}
+  body.restaurant-mode .restaurant-address-suggestions{left:0!important;right:0!important;top:48px!important;width:auto!important;max-width:none!important;}
+}
+@media(max-width:430px){
+  body.restaurant-mode .restaurant-location-row{grid-template-columns:minmax(0,1fr) 82px 68px 60px!important;gap:5px!important;}
+  body.restaurant-mode .restaurant-location-field input{height:40px!important;font-size:.78rem!important;}
+  body.restaurant-mode .restaurant-location-btn,body.restaurant-mode .restaurant-find-btn{height:40px!important;min-height:40px!important;font-size:.60rem!important;}
+  body.restaurant-mode .restaurant-radius-display{height:40px!important;min-height:40px!important;font-size:.63rem!important;}
+}
+.stack-card,.stack-card .card-photo,.stack-card .card-content{touch-action:pan-y!important;}
+.restaurant-card,.restaurant-card .restaurant-photo,.restaurant-card .restaurant-body{touch-action:pan-y!important;}
+.stack-card [data-card-action],.restaurant-card [data-rest-action]{touch-action:manipulation!important;}
+</style>
+<script id="dinliminate-p701-final-runtime">
+(function(){
+  'use strict';
+  const $=id=>document.getElementById(id);
+  const syncRadiusLabel=()=>{
+    const select=$('restaurantRadiusFilter'),label=$('restaurantRadiusDisplayText');
+    if(!select||!label)return;
+    const v=Number(select.value)||10;
+    label.textContent=v+' mi';
+    select.setAttribute('aria-label','Restaurant search radius, '+v+' miles');
+  };
+  const select=$('restaurantRadiusFilter'),display=$('restaurantRadiusDisplay');
+  if(select&&!select.dataset.p701Bound){
+    select.dataset.p701Bound='1';
+    select.addEventListener('change',()=>{window.setRestaurantRadiusV3?.(select.value);syncRadiusLabel();});
+    syncRadiusLabel();
+  }
+  if(display&&!display.dataset.p701Bound){display.dataset.p701Bound='1';display.addEventListener('click',()=>select?.focus(),{passive:true});}
+})();
+</script>
+</body>
 <!-- Dinliminate p623: authoritative restaurant location controller. -->
 <!-- Dinliminate final engineering hardening: restaurant filter readability, exact-device location path, elimination-vs-filter state separation. -->
 
