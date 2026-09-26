@@ -1,7 +1,7 @@
 /* Dinliminate P703 — single owner for card swipes and decision buttons. */
 (function(){
   'use strict';
-  const VERSION='p703';
+  const VERSION='p704';
   const $=id=>document.getElementById(id);
 
   const safeCall=(fn,...args)=>{
@@ -13,8 +13,8 @@
   function bindRestaurantCard(card){ return bindCard(card,'restaurant'); }
 
   function bindCard(card,mode){
-    if(!card || card.dataset.dinInteractionBound==='p703') return card;
-    card.dataset.dinInteractionBound='p703';
+    if(!card || card.dataset.dinInteractionBound==='p704') return card;
+    card.dataset.dinInteractionBound='p704';
     card.style.touchAction='none';
 
     let pointerId=null;
@@ -83,28 +83,26 @@
     return bindCard(card,mode);
   }
 
-  function replaceButton(id,handler){
-    const old=$(id);
-    if(!old||old.dataset.dinActionBound==='p703')return old;
-    const fresh=old.cloneNode(true);
-    fresh.dataset.dinActionBound='p703';
-    old.replaceWith(fresh);
-    fresh.addEventListener('click',e=>{
-      e.preventDefault();e.stopPropagation();safeCall(handler,e);
-    });
-    return fresh;
-  }
-
   function bindButtons(){
-    replaceButton('cutBtn',()=>safeCall(window.cutCurrent,current($('stage'),'food')));
-    replaceButton('holdBtn',()=>safeCall(window.holdCurrent,current($('stage'),'food')));
-    replaceButton('backBtn',()=>safeCall(window.undoLast));
-    replaceButton('hideBtn',()=>safeCall(window.hideCurrent||window.hideItem));
-
-    replaceButton('restaurantCutBtn',()=>safeCall(window.restaurantCut,current($('restaurantStage'),'restaurant')));
-    replaceButton('restaurantKeepBtn',()=>safeCall(window.restaurantKeep,current($('restaurantStage'),'restaurant')));
-    replaceButton('restaurantBackAction',()=>safeCall(window.restaurantUndo));
-    replaceButton('restaurantHideBtn',()=>safeCall(window.restaurantHide));
+    if(document.documentElement.dataset.dinDecisionClicks==='p704') return;
+    document.documentElement.dataset.dinDecisionClicks='p704';
+    document.addEventListener('click',e=>{
+      const btn=e.target?.closest?.('#cutBtn,#holdBtn,#backBtn,#hideBtn,#restaurantCutBtn,#restaurantKeepBtn,#restaurantBackAction,#restaurantHideBtn');
+      if(!btn)return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      switch(btn.id){
+        case 'cutBtn': return safeCall(window.cutCurrent,$('stage')?.querySelector?.('.active'));
+        case 'holdBtn': return safeCall(window.holdCurrent,$('stage')?.querySelector?.('.active'));
+        case 'backBtn': return safeCall(window.undoLast);
+        case 'hideBtn': return safeCall(window.hideCurrent);
+        case 'restaurantCutBtn': return safeCall(window.restaurantCut,$('restaurantStage')?.querySelector?.('.active'));
+        case 'restaurantKeepBtn': return safeCall(window.restaurantKeep,$('restaurantStage')?.querySelector?.('.active'));
+        case 'restaurantBackAction': return safeCall(window.restaurantUndo);
+        case 'restaurantHideBtn': return safeCall(window.restaurantHide);
+      }
+    },true);
   }
 
   function bindVisibleCards(){
