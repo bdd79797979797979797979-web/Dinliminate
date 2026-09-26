@@ -2,13 +2,7 @@
   "version": 2,
   "functions": {
     "api/clean-entry.js": {
-      "maxDuration": 30,
-      "includeFiles": [
-        "index.html",
-        "launch-hardening.css",
-        "launch-hardening.js",
-        "p636-clean-ui.css"
-      ]
+      "maxDuration": 30
     },
     "api/restaurant-search.js": {
       "maxDuration": 60
